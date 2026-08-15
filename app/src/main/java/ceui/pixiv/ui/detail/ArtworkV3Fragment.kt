@@ -272,7 +272,7 @@ class ArtworkV3Fragment : IllustFeedFragment(R.layout.fragment_artwork_v3) {
         })
 
         // 关注态:观察作者 UserBean,变更后重算 Artist 条目(关注切换只这条重绑)。
-        // 顺带接住 caption 后台补拉的落地(见 ArtworkV3ViewModel.ensureTrustedCaption)。
+        // 顺带接住 caption / 收藏 / 关注态后台回源确认的落地(见 ArtworkV3ViewModel.ensureAuthoritativeState)。
         ObjectPool.get<IllustsBean>(illustId).observe(viewLifecycleOwner) { illust ->
             illust ?: return@observe
             syncDescSection(illust.caption)

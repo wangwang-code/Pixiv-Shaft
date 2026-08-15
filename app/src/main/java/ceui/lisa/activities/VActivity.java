@@ -84,6 +84,13 @@ public class VActivity extends BaseActivity<ActivityViewPagerBinding> {
                         IllustsBean exist = ObjectPool.INSTANCE.getIllust(illustsBean.getId()).getValue();
                         if (exist == null) {
                             ObjectPool.INSTANCE.updateIllust(illustsBean);
+                            // 池 miss = 这条 bean 不是本会话任何新鲜网络源喂进池的（feeds 列表页在
+                            // 点进详情前早就合过池，这里不会走到），多半是本地快照（发现池 / 稍后再看 /
+                            // 榜单 / 历史）或 widget 冻结 bean —— user.is_followed / is_bookmarked 是
+                            // 采集那一刻的值，可能已过期（典型：用户后来取关了，详情页作者栏还显示
+                            // 「已关注」）。标记一下，让详情页后台回源 v1/illust/detail 确认，
+                            // 别把旧关注态当当前值渲染（见 ObjectPool.stateUnconfirmedIds）。
+                            ObjectPool.INSTANCE.markStateUnconfirmed(illustsBean.getId());
                         }
                         if (Shaft.sSettings.isUseArtworkV3()) {
                             return ArtworkV3Fragment.newInstance(illustsBean.getId());

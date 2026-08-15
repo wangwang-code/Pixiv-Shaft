@@ -10,6 +10,8 @@ import ceui.lisa.models.NovelBean
 import ceui.lisa.models.ObjectSpec
 import ceui.lisa.models.UserBean
 import java.io.Serializable
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.set
 import kotlin.reflect.KClass
 
@@ -145,6 +147,38 @@ object ObjectPool {
     fun hasFullIllustVersion(illustId: Long): Boolean {
         return ObjectKey(illustId, ObjectSpec.POST) in fullVersionKeys
     }
+
+    /**
+     * 池里这条作品的收藏 / 关注态**可能不是当前值**的作品 id（本地快照 / 冻结 bean 填池）。
+     *
+     * 谁在填：[ceui.lisa.activities.VActivity] 详情 pager 在池 miss 时用 PageData 的 bean 填池。
+     * 正常的 feeds 列表页在点进详情前早就把自己的新鲜 bean 合过池
+     * （[ceui.pixiv.ui.common.IllustFeedPoolSync]），那个 `if (exist == null)` 根本不会走到；
+     * 真正走到的那条路（发现池 / 稍后再看 / 榜单 / 历史 / widget 兜底）拿的都是**冻结快照** ——
+     * `user.is_followed` 是采集那一刻的值，可能已过期（典型：用户后来取关了，详情页作者栏还显示
+     * 「已关注」）。[mergeKeepingExisting] 只把 null / 空当空值，旧 bool 是「正经值」会原样盖进池，
+     * 光靠 merge 拦不住。
+     *
+     * 详情页（V2/V3）据此**后台**回源 `v1/illust/detail` 确认收藏 / 关注态（不阻塞首屏，见
+     * [ceui.pixiv.ui.detail.ArtworkV3ViewModel.ensureAuthoritativeState] /
+     * [ceui.lisa.fragments.FragmentIllustViewModel]）；detail 落地（[confirmStateFresh]）后撤销标记。
+     * 只增不删进程级，量级同 [fullVersionKeys]。
+     */
+    private val stateUnconfirmedIds: MutableSet<Long> =
+        Collections.newSetFromMap(ConcurrentHashMap<Long, Boolean>())
+
+    /** 快照来源填池时标记：这条作品的池态需要后台回源确认。 */
+    fun markStateUnconfirmed(illustId: Long) {
+        stateUnconfirmedIds.add(illustId)
+    }
+
+    /** detail 接口整体覆盖成功 = 池态已是当前值，撤销标记，后续进详情不再重复回源。 */
+    fun confirmStateFresh(illustId: Long) {
+        stateUnconfirmedIds.remove(illustId)
+    }
+
+    fun isStateUnconfirmed(illustId: Long): Boolean =
+        stateUnconfirmedIds.contains(illustId)
 
     @PublishedApi
     internal val gson: Gson = Gson()

@@ -71,6 +71,8 @@ suspend fun fetchFullIllustDetail(illustId: Long): IllustsBean? {
     }
     ObjectPool.update(usable, isFullVersion = true)
     usable.user?.let { ObjectPool.update(it) }
+    // detail 确认过 = 池态已是当前值，撤销「快照填池」标记（见 ObjectPool.stateUnconfirmedIds）
+    ObjectPool.confirmStateFresh(illustId)
     return usable
 }
 
@@ -123,6 +125,8 @@ fun fetchWebIllustFallbackAsync(illustId: Long, onResult: Callback<IllustsBean?>
         if (bean != null) {
             ObjectPool.update(bean, isFullVersion = true)
             bean.user?.let { ObjectPool.update(it) }
+            // web 兜底同样是最权威可得的一份，撤销「快照填池」标记，别让详情页反复回源
+            ObjectPool.confirmStateFresh(illustId)
         }
         onResult.doSomething(bean)
     }

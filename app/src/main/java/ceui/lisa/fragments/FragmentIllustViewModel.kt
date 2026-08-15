@@ -55,7 +55,11 @@ class FragmentIllustViewModel(private val illustId: Long) : ViewModel() {
             val cur = ObjectPool.get<IllustsBean>(illustId).value
             // hasTrustedCaption:列表接口会不定期掐掉部分作品的 caption(#960),caption 为空
             // 且没被 detail 确认过时也回源补拉,落池后 illust observer 自动重渲染简介。
-            if (cur == null || !cur.isFullDetail() || !cur.hasTrustedCaption()) {
+            // isStateUnconfirmed:快照填池(发现池/稍后再看/榜单等冻结 bean)的作品收藏/关注态
+            // 可能是旧值(典型:用户后来取关了作者栏还显示「已关注」),同样回源确认。
+            if (cur == null || !cur.isFullDetail() || !cur.hasTrustedCaption() ||
+                ObjectPool.isStateUnconfirmed(illustId)
+            ) {
                 fetchFullIllustDetail(illustId)
             }
         }

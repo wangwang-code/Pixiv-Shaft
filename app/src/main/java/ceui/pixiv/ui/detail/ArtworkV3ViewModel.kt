@@ -56,7 +56,7 @@ class ArtworkV3ViewModel(
         illustBean = bean
         _isBookmarked.value = bean.isIs_bookmarked
         ensurePageDimensions(bean)
-        ensureTrustedCaption(bean)
+        ensureAuthoritativeState(bean)
         if (downloadFabActive && waitingForInitialBean) {
             refreshDownloadFab()
         }
@@ -81,9 +81,9 @@ class ArtworkV3ViewModel(
         }
     }
 
-    // ── caption 后台补拉(#960)──
+    // ── 收藏 / 关注 / caption 后台回源确认（#960 + 快照填池的次生 bug）──
 
-    private var captionBackfillRequested = false
+    private var authoritativeBackfillRequested = false
     private var pageVisible = false
 
     /**
@@ -96,33 +96,31 @@ class ArtworkV3ViewModel(
      */
     fun onPageVisible() {
         pageVisible = true
-        illustBean?.let { ensureTrustedCaption(it) }
+        illustBean?.let { ensureAuthoritativeState(it) }
     }
 
     /**
-     * issue #960:pixiv 的列表接口会不定期对部分作品返回空 caption,详情页据此会漏掉简介。
+     * 首屏照常用池里的 bean 立刻渲染,但两种「池态可能不是当前值」的情况要在后台回源确认,
+     * 落池后由 Fragment 的 ObjectPool observer 把作者栏 / FAB 增量纠正,不用重进页面:
      *
-     * 补是要补,但**绝不能挂在首屏的阻塞路径上**——那正是这条曾经犯过的错:判据一度写进
-     * [ArtworkV3FeedSource.resolveFullIllust],于是池里 isFullDetail=true(大图 / 作者 / tag /
-     * 统计全都能立刻画出来)的 bean,只因为 caption 是空串就要整页挂起等 v1/illust/detail,
-     * 首屏白屏转圈 0.6~1.1s;而空 caption 在推荐流里约占四成(真机采样 8 个中 3 个),
-     * 且其中大多数作品是**真没有简介**,那一次请求纯属白等。
-     *
-     * 现在对齐 V2([ceui.lisa.fragments.FragmentIllustViewModel] 的 init):首屏照常用池里的 bean
-     * 立刻渲染,detail 在后台拉;[fetchFullIllustDetail] 落池后由 Fragment 的 ObjectPool observer
-     * 把简介块增量插回去(见 ArtworkV3Fragment.syncDescSection)。
+     * 1. issue #960:pixiv 的列表接口会不定期对部分作品返回空 caption,详情页据此会漏掉简介;
+     * 2. 快照填池的作品([ObjectPool.isStateUnconfirmed],发现池 / 稍后再看 / 榜单等冻结 bean):
+     *    `user.is_followed` / `is_bookmarked` 是采集那一刻的值,可能已过期 —— 典型:用户后来取关了,
+     *    作者栏还显示「已关注」。VActivity 填池时打的标记就是这条的触发条件。
      *
      * 只在「池里这条 bean 本来就够画首屏」时才补:[isFullDetail] 为 false 时数据源自己正在阻塞
-     * 拉 detail,那一次拉取顺带就把 caption 带回来了,这里再发一次就是重复请求。
+     * 拉 detail,那一次拉取顺带就把这些字段带回来了,这里再发一次就是重复请求。
      *
      * 命中率(真机实测):动态流 8 次补拉救回 4 条简介(pixiv 确实会掐动态流的 caption);推荐流
-     * 6 次全空——那些作品是**真没写简介**。所以这笔钱只花在「用户真的打开了、且这条确实缺简介」
-     * 的作品上([onPageVisible] 的闸门),每个作品至多一次(拉过即进 fullVersionKeys)。
+     * 6 次全空——那些作品是**真没写简介**。所以这笔钱只花在「用户真的打开了、且这条确实缺简介 /
+     * 状态未确认」的作品上([onPageVisible] 的闸门),每个作品至多一次(拉过即进 fullVersionKeys /
+     * 撤销 unconfirmed 标记)。
      */
-    private fun ensureTrustedCaption(bean: IllustsBean) {
-        if (!pageVisible || captionBackfillRequested) return
-        if (!bean.isFullDetail() || bean.hasTrustedCaption()) return
-        captionBackfillRequested = true
+    private fun ensureAuthoritativeState(bean: IllustsBean) {
+        if (!pageVisible || authoritativeBackfillRequested) return
+        if (!bean.isFullDetail()) return
+        if (bean.hasTrustedCaption() && !ObjectPool.isStateUnconfirmed(illustId)) return
+        authoritativeBackfillRequested = true
         viewModelScope.launch { fetchFullIllustDetail(illustId) }
     }
 
