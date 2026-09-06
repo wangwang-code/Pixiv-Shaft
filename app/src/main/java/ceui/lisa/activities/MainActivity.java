@@ -89,6 +89,8 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
     // 与 baseFragments 一一对应的底部菜单 item id;TAB 顺序可配置后,
     // id 和位置的关系不再固定,所有 id<->position 换算都查这张表
     private int[] tabMenuIds = null;
+    /** 最近一次已持久化的底部导航位置；用于去重，避免同一位置反复写 MMKV。 */
+    private int lastPersistedNavigationPosition = -1;
 
     /**
      * 开屏动画安全兜底超时：万一首页推荐插画 tab 没能按预期跑到（异常 / 未来改了默认
@@ -255,6 +257,8 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
                 }
                 // 换 tab 必须把底栏放回来:收起状态下滑到别的 tab,否则没底栏可点。
                 bottomBarAutoHide.reveal();
+                // 即时持久化当前 tab：进程在任意时刻被杀，下次冷启动都能恢复。
+                persistNavigationPosition(position);
             }
 
             @Override
@@ -411,7 +415,13 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
             }
         });
         baseBind.viewPager.setOffscreenPageLimit(baseFragments.length - 1);
-        baseBind.viewPager.setCurrentItem(getNavigationInitPosition());
+        final int navigationInitPosition = getNavigationInitPosition();
+        // 去重水位必须来自真实落盘值，不能直接假定本次启动页已经保存。否则用户从固定
+        // 启动页切到「上次位置」且期间没再换 TAB 时，MMKV 仍会保留更早的旧位置。
+        lastPersistedNavigationPosition = Shaft.getMMKV().getInt(
+                Params.MAIN_ACTIVITY_NAVIGATION_POSITION, -1);
+        persistNavigationPosition(navigationInitPosition);
+        baseBind.viewPager.setCurrentItem(navigationInitPosition);
         Manager.get().restore();
 
         // Show rate dialog after a short delay to avoid disrupting app startup.
@@ -910,6 +920,17 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+        // 退后台/划掉任务时兜底落盘；onPageSelected 已处理过的大部分场景这里会被去重跳过。
+        // 未登录跳登录页、或旧系统还在申请存储权限时 adapter 尚未初始化，不能用默认的 0
+        // 覆盖上一次真实位置。
+        if (baseBind.viewPager.getAdapter() != null) {
+            persistNavigationPosition(baseBind.viewPager.getCurrentItem());
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         LocalBroadcastManager.getInstance(this).unregisterReceiver(profileReadyReceiver);
@@ -917,9 +938,16 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
 
     @Override
     public void finish() {
-        int currentPosition = baseBind.viewPager.getCurrentItem();
-        Shaft.getMMKV().putInt(Params.MAIN_ACTIVITY_NAVIGATION_POSITION, currentPosition);
+        persistNavigationPosition(baseBind.viewPager.getCurrentItem());
         super.finish();
+    }
+
+    private void persistNavigationPosition(int position) {
+        if (position == lastPersistedNavigationPosition) {
+            return;
+        }
+        Shaft.getMMKV().putInt(Params.MAIN_ACTIVITY_NAVIGATION_POSITION, position);
+        lastPersistedNavigationPosition = position;
     }
 
     private int getNavigationInitPosition() {
