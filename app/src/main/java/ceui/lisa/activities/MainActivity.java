@@ -416,8 +416,11 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
         });
         baseBind.viewPager.setOffscreenPageLimit(baseFragments.length - 1);
         final int navigationInitPosition = getNavigationInitPosition();
-        // 启动恢复即视为“已持久化”，避免 setCurrentItem 触发 onPageSelected 后重复写同一值。
-        lastPersistedNavigationPosition = navigationInitPosition;
+        // 去重水位必须来自真实落盘值，不能直接假定本次启动页已经保存。否则用户从固定
+        // 启动页切到「上次位置」且期间没再换 TAB 时，MMKV 仍会保留更早的旧位置。
+        lastPersistedNavigationPosition = Shaft.getMMKV().getInt(
+                Params.MAIN_ACTIVITY_NAVIGATION_POSITION, -1);
+        persistNavigationPosition(navigationInitPosition);
         baseBind.viewPager.setCurrentItem(navigationInitPosition);
         Manager.get().restore();
 
@@ -920,7 +923,11 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
     protected void onStop() {
         super.onStop();
         // 退后台/划掉任务时兜底落盘；onPageSelected 已处理过的大部分场景这里会被去重跳过。
-        persistNavigationPosition(baseBind.viewPager.getCurrentItem());
+        // 未登录跳登录页、或旧系统还在申请存储权限时 adapter 尚未初始化，不能用默认的 0
+        // 覆盖上一次真实位置。
+        if (baseBind.viewPager.getAdapter() != null) {
+            persistNavigationPosition(baseBind.viewPager.getCurrentItem());
+        }
     }
 
     @Override
