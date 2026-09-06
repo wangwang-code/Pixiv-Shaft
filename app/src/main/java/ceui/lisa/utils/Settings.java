@@ -336,6 +336,8 @@ public class Settings {
 
     private boolean autoSnapshotOnBookmark = false; // 试验性：收藏时生成离线快照
 
+    private boolean autoSnapshotOnIllustManga = false; // 试验性：插画/漫画自动生成快照
+
     private boolean r18FilterDefaultEnable = false; // 默认开启R18内容过滤
 
     private boolean toastDownloadResult = true; // 默认提示下载结果
@@ -985,6 +987,14 @@ public class Settings {
 
     public void setAutoSnapshotOnBookmark(boolean autoSnapshotOnBookmark) {
         this.autoSnapshotOnBookmark = autoSnapshotOnBookmark;
+    }
+
+    public boolean isAutoSnapshotOnIllustManga() {
+        return autoSnapshotOnIllustManga;
+    }
+
+    public void setAutoSnapshotOnIllustManga(boolean autoSnapshotOnIllustManga) {
+        this.autoSnapshotOnIllustManga = autoSnapshotOnIllustManga;
     }
 
     public boolean isShowOriginalPreviewImage() {
