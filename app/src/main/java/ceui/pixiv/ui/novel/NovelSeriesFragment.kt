@@ -42,6 +42,7 @@ import ceui.pixiv.ui.detail.seriesAuthorRenderer
 import ceui.pixiv.ui.detail.seriesCaptionRenderer
 import ceui.pixiv.ui.detail.seriesSectionLabelRenderer
 import ceui.pixiv.ui.novel.reader.export.ExportFormat
+import ceui.pixiv.ui.novel.reader.export.NovelExportManager
 import ceui.pixiv.ui.novel.reader.ui.ExportFormatCallback
 import ceui.pixiv.ui.novel.reader.ui.ExportSheet
 import ceui.pixiv.ui.task.BatchDownloadNovelsTask
@@ -55,8 +56,12 @@ import ceui.pixiv.utils.ppppx
 import ceui.pixiv.utils.setOnClick
 import com.hjq.toast.Toaster
 import ceui.pixiv.witstudio.dialog.WitDialog
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -243,22 +248,27 @@ class NovelSeriesFragment :
         .filterIsInstance<NovelSeriesHeroFeedItem>().firstOrNull()?.series
 
     /**
-     * 合并下载：只负责弹格式选择，真正的动作在 [onExportFormatChosen] 里按当时的 VM 状态重建。
-     *
-     * 刻意**不**把动作攒成一个 `pendingMergeAction` 闭包挂在 Fragment 字段上：[ExportSheet] 是
-     * DialogFragment，旋转 / 切深色会重建宿主 Fragment，而对话框由 FragmentManager 自动恢复并
-     * 回调到**新**实例上——旧实例的字段连同闭包一起没了，用户选完格式点确定会静默无反应。
-     * 合并要用的数据（系列详情、已加载章节）全都住在比 view 长命的 VM 里，现取即可。
+     * 合并下载：有默认格式直接走快路径；默认“每次询问”时弹 [ExportSheet]。
+     * 默认 TXT 且开启「有插图时存 EPUB」时，抓完章节后由 [startMergeDownload] 弹 TXT/EPUB 质询。
      */
     private fun launchMergeDownload() {
         if (heroDetail() == null) {
             Toaster.show(getString(R.string.merge_download_failed_empty))
             return
         }
-        ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+        val format = NovelExportManager.resolveConfiguredFormat()
+        if (format != null) {
+            startMergeDownload(format, allowAutoEpub = true)
+        } else {
+            ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+        }
     }
 
     override fun onExportFormatChosen(format: ExportFormat) {
+        startMergeDownload(format)
+    }
+
+    private fun startMergeDownload(format: ExportFormat, allowAutoEpub: Boolean = false) {
         val detail = heroDetail()
         if (detail == null) {
             Toaster.show(getString(R.string.merge_download_failed_empty))
@@ -271,6 +281,8 @@ class NovelSeriesFragment :
             knownNovels = dedup,
             format = format,
             stopSignal = stopSignal,
+            allowAutoEpub = allowAutoEpub,
+            confirmFormat = if (allowAutoEpub) { _ -> askMergeTxtOrEpub() } else null,
         )
         val config = FetchProgressDialog.Config(
             title = "merge-novel-series",
@@ -295,6 +307,34 @@ class NovelSeriesFragment :
             onCancelRequested = { stopSignal.set(true) },
         )
         FetchProgressDialog.show(requireActivity().supportFragmentManager, flow, config)
+    }
+
+    private suspend fun askMergeTxtOrEpub(): ExportFormat? = withContext(Dispatchers.Main) {
+        suspendCancellableCoroutine { cont ->
+            if (!isAdded) {
+                cont.resume(null)
+                return@suspendCancellableCoroutine
+            }
+            val dialog = WitDialog.MenuDialogBuilder(requireContext())
+                .setTitle(getString(R.string.setting_novel_epub_on_images))
+                .addItems(
+                    arrayOf(getString(R.string.format_txt), getString(R.string.format_epub)),
+                ) { d, which ->
+                    if (cont.isActive) {
+                        cont.resume(if (which == 0) ExportFormat.Txt else ExportFormat.Epub)
+                    }
+                    d.dismiss()
+                }
+                .addAction(getString(R.string.action_cancel)) { d, _ ->
+                    if (cont.isActive) cont.resume(null)
+                    d.dismiss()
+                }
+                .create()
+            dialog.setOnDismissListener {
+                if (cont.isActive) cont.resume(null)
+            }
+            dialog.show()
+        }
     }
 
     private fun launchBatchDownloadSelected() {

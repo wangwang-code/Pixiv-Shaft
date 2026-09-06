@@ -1537,6 +1537,8 @@
     <string name="novel_chip_series_content_count">Chapters  %1$s</string>
     <string name="novel_chip_series_char_count">Total length  %1$s</string>
     <string name="setting_default_novel_format">Default novel download format</string>
+    <string name="setting_novel_epub_on_images">Save as EPUB when novel has illustrations</string>
+    <string name="setting_novel_epub_on_images_desc">When default format is TXT, automatically export EPUB if the text contains illustrations</string>
     <string name="setting_default_image_resolution">Default image save resolution</string>
     <string name="option_always_ask">Always ask</string>
     <string name="msg_unknown_format">Unknown format: %s</string>

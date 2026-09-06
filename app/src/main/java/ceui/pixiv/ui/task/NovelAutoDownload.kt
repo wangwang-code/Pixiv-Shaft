@@ -114,9 +114,15 @@ object NovelAutoDownload {
                 NovelTextCache.put(novel.id, it)
             }
         }
+        // 自动下载属于默认 TXT 快路径：有插图且开关开启时静默改用 EPUB。
+        val format = if (NovelExportManager.shouldAutoEpubForDefaultTxt(ExportFormat.Txt, entry.tokens)) {
+            ExportFormat.Epub
+        } else {
+            ExportFormat.Txt
+        }
         when (val result = NovelExportManager.export(
             context = context,
-            format = ExportFormat.Txt,
+            format = format,
             novel = novel,
             webNovel = entry.webNovel,
             tokens = entry.tokens,

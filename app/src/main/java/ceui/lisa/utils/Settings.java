@@ -1524,6 +1524,17 @@ public class Settings {
         this.defaultNovelExportFormat = defaultNovelExportFormat;
     }
 
+    // 默认导出格式为 Txt 时，正文含插图自动改用 Epub（默认关闭）
+    private boolean defaultNovelExportEpubOnImages = false;
+
+    public boolean isDefaultNovelExportEpubOnImages() {
+        return defaultNovelExportEpubOnImages;
+    }
+
+    public void setDefaultNovelExportEpubOnImages(boolean defaultNovelExportEpubOnImages) {
+        this.defaultNovelExportEpubOnImages = defaultNovelExportEpubOnImages;
+    }
+
     // "" = 原图（当前默认行为），否则存 Params.IMAGE_RESOLUTION_* 值
     private String defaultImageResolution = "";
 
