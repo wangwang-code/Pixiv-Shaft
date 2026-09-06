@@ -94,6 +94,8 @@ agentwebCore = { module = "com.github.Justson.AgentWeb:agentweb-core", version.r
 circleImageView = { module = "de.hdodenhof:circleimageview", version.ref = "circleImageView" }
 colorPicker = { module = "com.jaredrummler:colorpicker", version.ref = "colorPicker" }
 coroutinesAndroid = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+coroutinesCore = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+androidxLifecycleRuntimeTesting = { module = "androidx.lifecycle:lifecycle-runtime-testing", version.ref = "lifecycle" }
 coroutinesTest = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 cronet = { module = "org.chromium.net:cronet-embedded", version.ref = "cronet" }
 desugarJdkLibs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugarJdkLibs" }

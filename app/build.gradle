@@ -351,6 +351,7 @@ dependencies {
     // First-party token storage + OkHttp Bearer/401 machinery. This module has
     // no dependency on :app or Pixiv business models.
     implementation project(path: ':safe')
+    implementation project(path: ':communication-android')
     implementation libs.mmkv
     // 部分华为等 OEM 上 libmmkv.so 偶发 dlopen "not found"，ReLinker 兜底从 APK 抠 .so 按绝对路径加载。
     implementation libs.relinker
