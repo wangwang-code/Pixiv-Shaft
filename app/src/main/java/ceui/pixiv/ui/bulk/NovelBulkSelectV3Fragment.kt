@@ -13,6 +13,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -21,8 +22,13 @@ import ceui.lisa.utils.GlideUtil
 import ceui.lisa.utils.Params
 import ceui.loxia.Novel
 import ceui.pixiv.actions.PixivActions
+import ceui.pixiv.chat.base.viewModels
 import ceui.pixiv.ui.common.tintMenuIconsWhite
 import ceui.pixiv.ui.detail.showV3Menu
+import ceui.pixiv.ui.novel.reader.export.ExportFormat
+import ceui.pixiv.ui.novel.reader.export.NovelExportManager
+import ceui.pixiv.ui.novel.reader.ui.ExportFormatCallback
+import ceui.pixiv.ui.novel.reader.ui.ExportSheet
 import ceui.pixiv.ui.task.BatchDownloadNovelsTask
 import ceui.pixiv.ui.task.FailedNovel
 import ceui.pixiv.witstudio.dialog.WitDialog
@@ -36,6 +42,11 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** 小说批量下载的待确认选中列表，跨旋转保留在 Fragment ViewModel 中。 */
+class NovelBulkDownloadRequestViewModel : ViewModel() {
+    var pendingNovels: List<Novel>? = null
+}
 
 /**
  * V3 风格小说批量操作 · 多选页（issue #974）。
@@ -61,7 +72,7 @@ import kotlinx.coroutines.withContext
  *  - 首段（filled）= 下载选中小说。**不 finish 本页**，见 [startDownload]
  *  - 尾段（tonal）= 批量收藏 / 批量取消收藏，走 [PixivActions] 门面 → `:actionqueue` 队列
  */
-class NovelBulkSelectV3Fragment : Fragment() {
+class NovelBulkSelectV3Fragment : Fragment(), ExportFormatCallback {
 
     companion object {
         /** [handoffKey] 是入口 put 进 [NovelBulkSelectHandoff] 时拿到的 key；null / 过期时本页显示「没有可选项」。 */
@@ -75,6 +86,8 @@ class NovelBulkSelectV3Fragment : Fragment() {
     private var source: List<Novel> = emptyList()
 
     private val items = mutableListOf<SelectableNovel>()
+
+    private val novelDownloadRequest by viewModels { NovelBulkDownloadRequestViewModel() }
 
     /**
      * 封面的 Glide 请求管理器，建一次复用。**别在 bind 里 `Glide.with(view)`** ——
@@ -230,11 +243,29 @@ class NovelBulkSelectV3Fragment : Fragment() {
         if (downloadRunning) return
         val picked = selectedNovels()
         if (picked.isEmpty()) return
+        val format = NovelExportManager.resolveConfiguredFormat()
+        if (format != null) {
+            startDownload(picked, format)
+        } else {
+            novelDownloadRequest.pendingNovels = picked
+            ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+        }
+    }
+
+    override fun onExportFormatChosen(format: ExportFormat) {
+        val picked = novelDownloadRequest.pendingNovels ?: return
+        novelDownloadRequest.pendingNovels = null
+        startDownload(picked, format)
+    }
+
+    private fun startDownload(picked: List<Novel>, format: ExportFormat) {
+        if (downloadRunning) return
         downloadRunning = true
         btnConfirm.isEnabled = false
         BatchDownloadNovelsTask(
             activity = requireActivity(),
             novels = picked,
+            format = format,
             onFinished = { failures -> onDownloadFinished(failures) },
         )
     }

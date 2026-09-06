@@ -41,6 +41,7 @@ import ceui.pixiv.ui.detail.showV3Menu
 import ceui.pixiv.ui.novel.reader.model.PageGeometry
 import ceui.pixiv.ui.novel.reader.export.ExportFormat
 import ceui.pixiv.ui.novel.reader.export.ExportResult
+import ceui.pixiv.ui.novel.reader.export.NovelExportManager
 import ceui.pixiv.ui.novel.reader.model.HighlightColor
 import ceui.pixiv.ui.novel.reader.model.HighlightSpan
 import ceui.pixiv.ui.novel.reader.model.SearchHit
@@ -799,8 +800,7 @@ class NovelReaderV3Fragment : Fragment(R.layout.fragment_novel_reader_v3),
                     Toaster.showShort(getString(R.string.msg_novel_not_ready))
                     return@item
                 }
-                val defaultFormat = Shaft.sSettings.defaultNovelExportFormat
-                val format = ExportFormat.entries.firstOrNull { it.name == defaultFormat }
+                val format = NovelExportManager.resolveConfiguredFormat()
                 if (format != null) {
                     executeExport(format)
                 } else {

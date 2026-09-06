@@ -251,8 +251,7 @@ class NovelTextFragment :
     }
 
     override fun onClickDownloadNovel(sender: View, novelId: Long) {
-        val defaultFormat = Shaft.sSettings.defaultNovelExportFormat
-        val format = ExportFormat.entries.firstOrNull { it.name == defaultFormat }
+        val format = NovelExportManager.resolveConfiguredFormat()
         if (format != null) executeExport(format) else showExportSheet()
     }
 

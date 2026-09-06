@@ -114,9 +114,12 @@ object NovelAutoDownload {
                 NovelTextCache.put(novel.id, it)
             }
         }
+        // 自动下载是收藏的副作用，没有交互入口可「每次询问」：
+        // 显式配置了默认格式就用它，否则回退 TXT，避免静默跳过自动下载。
+        val format = NovelExportManager.resolveConfiguredFormat() ?: ExportFormat.Txt
         when (val result = NovelExportManager.export(
             context = context,
-            format = ExportFormat.Txt,
+            format = format,
             novel = novel,
             webNovel = entry.webNovel,
             tokens = entry.tokens,

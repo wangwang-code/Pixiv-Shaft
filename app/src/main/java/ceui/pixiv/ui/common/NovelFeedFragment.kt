@@ -10,6 +10,7 @@ import android.widget.ImageView
 import androidx.annotation.LayoutRes
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.lifecycle.ViewModel
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewbinding.ViewBinding
 import ceui.lisa.R
@@ -25,6 +26,7 @@ import ceui.pixiv.witstudio.theme.V3Palette
 import ceui.pixiv.api.Client
 import ceui.loxia.Novel
 import ceui.pixiv.actions.PixivActions
+import ceui.pixiv.chat.base.viewModels
 import ceui.pixiv.feeds.FeedCell
 import ceui.pixiv.feeds.FeedFragment
 import ceui.pixiv.feeds.FeedItem
@@ -34,7 +36,12 @@ import ceui.pixiv.feeds.FeedSkeletonView
 import ceui.pixiv.feeds.FeedViewModel
 import ceui.pixiv.feeds.feedRenderer
 import ceui.pixiv.ui.novel.NovelSeriesFragment
+import ceui.pixiv.ui.novel.reader.export.ExportFormat
+import ceui.pixiv.ui.novel.reader.export.NovelExportManager
+import ceui.pixiv.ui.novel.reader.ui.ExportFormatCallback
+import ceui.pixiv.ui.novel.reader.ui.ExportSheet
 import ceui.pixiv.ui.recommend.bindTrendingScore
+import ceui.pixiv.ui.task.BatchDownloadNovelsTask
 import ceui.pixiv.utils.playLikePressHaptic
 import ceui.pixiv.utils.pinHostGlide
 import ceui.pixiv.utils.ppppx
@@ -64,6 +71,11 @@ private data class NovelImageRequestKey(
 private const val NOVEL_SPOILER_BLUR_RADIUS = 25
 private const val NOVEL_SPOILER_BLUR_SAMPLING = 3
 
+/** 小说列表页“下载这一篇”的待确认请求，跨旋转保留在 Fragment ViewModel 中。 */
+class NovelDownloadRequestViewModel : ViewModel() {
+    var pendingNovel: Novel? = null
+}
+
 /**
  * 小说列表页的共享基类（对齐插画侧 [IllustFeedFragment]）。子类只声明数据源
  *（feedViewModels + mapper 产出 [NovelFeedItem]）；本类统一提供主力小说卡（recy_novel）：
@@ -84,9 +96,50 @@ private const val NOVEL_SPOILER_BLUR_SAMPLING = 3
  */
 abstract class NovelFeedFragment(
     @LayoutRes contentLayoutId: Int = ceui.pixiv.feeds.R.layout.fragment_feed,
-) : FeedFragment(contentLayoutId) {
+) : FeedFragment(contentLayoutId), ExportFormatCallback {
 
     abstract override val feedViewModel: FeedViewModel<String>
+
+    private val novelDownloadRequest by viewModels { NovelDownloadRequestViewModel() }
+
+    /**
+     * 小说卡“下载这一篇”：有默认格式直接下，设置为“每次询问”时弹 [ExportSheet]。
+     * 请求放在 Fragment ViewModel 中，旋转后由新实例的 [onExportFormatChosen] 继续执行。
+     */
+    fun startNovelDownload(novel: Novel) {
+        val format = NovelExportManager.resolveConfiguredFormat()
+        if (format != null) {
+            startNovelDownload(novel, format)
+        } else {
+            novelDownloadRequest.pendingNovel = novel
+            ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+        }
+    }
+
+    override fun onExportFormatChosen(format: ExportFormat) {
+        val novel = novelDownloadRequest.pendingNovel ?: return
+        novelDownloadRequest.pendingNovel = null
+        startNovelDownload(novel, format)
+    }
+
+    private fun startNovelDownload(novel: Novel, format: ExportFormat) {
+        BatchDownloadNovelsTask(
+            activity = requireActivity(),
+            novels = listOf(novel),
+            format = format,
+            onFinished = { failures ->
+                if (isAdded) {
+                    Common.showToast(
+                        if (failures.isEmpty()) {
+                            getString(R.string.batch_download_all_ok)
+                        } else {
+                            getString(R.string.batch_download_some_failed, failures.size)
+                        }
+                    )
+                }
+            },
+        )
+    }
 
     /**
      * 封面 / 头像的 Glide 请求管理器，建一次复用（对齐插画侧 [IllustFeedFragment.illustGlide]）。
