@@ -2972,4 +2972,13 @@
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">Geçerli motor: %1$s</string>
     <string name="cloud_translate_usage_section_engine">Yapay zekâ çeviri kotası · %1$s</string>
+    <string name="artwork_poster_save">Çalışma posterini kaydet</string>
+    <string name="artwork_poster_generating">Yüksek çözünürlüklü poster oluşturuluyor…</string>
+    <string name="artwork_poster_saved">Çalışma posteri galeriye kaydedildi</string>
+    <string name="artwork_poster_failed">Poster oluşturulamadı: %1$s</string>
+    <string name="artwork_poster_image_unavailable">Çalışma görseli kullanılamıyor</string>
+    <string name="artwork_poster_destination_unavailable">Galeri dosyası oluşturulamadı</string>
+    <string name="artwork_poster_encode_failed">Poster kodlanamadı</string>
+    <string name="artwork_poster_unknown_author">Bilinmeyen sanatçı</string>
+    <string name="artwork_poster_untitled">Başlıksız</string>
 </resources>

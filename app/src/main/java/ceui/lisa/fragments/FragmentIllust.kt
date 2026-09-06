@@ -78,6 +78,7 @@ import ceui.pixiv.snapshot.SnapshotViewerData
 import ceui.pixiv.snapshot.localizeIllust
 import ceui.pixiv.snapshot.showSnapshotCreateDialog
 import ceui.pixiv.ui.share.shareFirstImage
+import ceui.pixiv.ui.share.saveArtworkPoster
 import ceui.pixiv.ui.synonym.SynonymOperate
 import ceui.pixiv.ui.upscale.IllustAiHelper
 import ceui.pixiv.utils.buildPinnedTagPreviewJson
@@ -475,6 +476,11 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
                 R.id.action_share_image -> {
                     shareFirstImage(illust)
                     false
+                }
+                R.id.action_save_poster -> {
+                    // 与页码浮标同源：多图作品保存当前看到的页；图片区不在视口时回退首图。
+                    saveArtworkPoster(illust, pageProgressIndex.coerceAtLeast(0))
+                    true
                 }
                 R.id.action_snapshot -> {
                     showSnapshotCreateDialog(illust)
