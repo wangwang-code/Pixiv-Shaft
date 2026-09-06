@@ -13,6 +13,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -21,6 +22,7 @@ import ceui.lisa.utils.GlideUtil
 import ceui.lisa.utils.Params
 import ceui.loxia.Novel
 import ceui.pixiv.actions.PixivActions
+import ceui.pixiv.chat.base.viewModels
 import ceui.pixiv.ui.common.tintMenuIconsWhite
 import ceui.pixiv.ui.detail.showV3Menu
 import ceui.pixiv.ui.task.BatchDownloadNovelsTask
@@ -36,6 +38,12 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** 小说批量选择页的交接数据缓存，跨旋转保留，避免重复 take 导致列表空态。 */
+private class NovelBulkSelectRequestViewModel : ViewModel() {
+    var source: List<Novel>? = null
+    var items: List<SelectableNovel>? = null
+}
 
 /**
  * V3 风格小说批量操作 · 多选页（issue #974）。
@@ -71,6 +79,8 @@ class NovelBulkSelectV3Fragment : Fragment() {
         }
     }
 
+    private val bulkViewModel by viewModels { NovelBulkSelectRequestViewModel() }
+
     /** 源列表。勾选结果靠下标换回这里的 [Novel]。 */
     private var source: List<Novel> = emptyList()
 
@@ -95,6 +105,15 @@ class NovelBulkSelectV3Fragment : Fragment() {
     private lateinit var hint: TextView
     private lateinit var btnConfirm: Button
     private lateinit var btnBookmarkActions: View
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (bulkViewModel.source == null) {
+            bulkViewModel.source = NovelBulkSelectHandoff.take(
+                arguments?.getString(BulkSelectHandoff.ARG_HANDOFF_KEY)
+            )
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -135,7 +154,8 @@ class NovelBulkSelectV3Fragment : Fragment() {
         list.layoutManager = LinearLayoutManager(requireContext())
         list.adapter = adapter
 
-        val raw = NovelBulkSelectHandoff.take(arguments?.getString(BulkSelectHandoff.ARG_HANDOFF_KEY))
+        // 只允许首次创建时 take；旋转重建从 ViewModel 恢复，避免重复 take 变成空态。
+        val raw = bulkViewModel.source
         if (raw.isNullOrEmpty()) {
             hint.text = getString(R.string.bulk_select_no_items)
             btnConfirm.isEnabled = false
@@ -149,46 +169,56 @@ class NovelBulkSelectV3Fragment : Fragment() {
         btnConfirm.isEnabled = false
         setBookmarkActionsEnabled(false)
 
-        // 大列表（上限 20000）的展示数据构造搬 IO，避免主线程长时间循环。
-        viewLifecycleOwner.lifecycleScope.launch {
-            // 必须用 Activity context 取字符串，**不能图省事换成 applicationContext**：
-            // 本 app 有应用内语言设置，Activity 的 Configuration 由
-            // BaseActivity.attachBaseContext 保证包成用户选的语言，而 Application 那份在
-            // 「切了语言、还没冷启」的窗口里会停留在系统 locale（见 AppLocales
-            // .applyConfigurationInPlace 的注释，那个方法存在就是为了补这个洞）。
-            // 协程挂在 viewLifecycleOwner 上，view 一销毁就取消，攥不住这个引用。
-            val ctx = requireContext()
-            // 数字分组也跟着同一份 Configuration 走，别用 Locale.getDefault() ——
-            // 那是 JVM 全局值，跟上面读字符串用的 locale 不保证是同一个。
-            val locale = ConfigurationCompat.getLocales(ctx.resources.configuration)[0]
-                ?: Locale.getDefault()
-            val prepared = withContext(Dispatchers.IO) {
-                val numbers = NumberFormat.getIntegerInstance(locale)
-                raw.mapIndexed { index, novel ->
-                    val words = ctx.getString(
-                        R.string.v3_novel_word_count, numbers.format(novel.text_length ?: 0)
-                    )
-                    SelectableNovel(
-                        index = index,
-                        coverUrl = novel.image_urls?.medium,
-                        title = novel.title.orEmpty(),
-                        author = novel.user?.name.orEmpty(),
-                        // 收藏态直接写在行里：批量收藏 / 取消收藏时，用户得先看得出
-                        // 哪些本来就已经收藏了，否则「实际入队 3 条」会显得莫名其妙。
-                        meta = if (novel.is_bookmarked == true) {
-                            ctx.getString(R.string.bulk_select_novel_meta_bookmarked, words)
-                        } else {
-                            words
-                        },
-                        // 默认全不选（同插画页，issue #922）：想要全部的走 toolbar 一键全选。
-                        selected = false,
-                    )
-                }
-            }
+        val restored = bulkViewModel.items
+        if (restored != null) {
             items.clear()
-            items.addAll(prepared)
+            items.addAll(restored)
+            bulkViewModel.items = items
             adapter.notifyDataSetChanged()
             refreshHeaderAndCta()
+        } else {
+            // 大列表（上限 20000）的展示数据构造搬 IO，避免主线程长时间循环。
+            viewLifecycleOwner.lifecycleScope.launch {
+                // 必须用 Activity context 取字符串，**不能图省事换成 applicationContext**：
+                // 本 app 有应用内语言设置，Activity 的 Configuration 由
+                // BaseActivity.attachBaseContext 保证包成用户选的语言，而 Application 那份在
+                // 「切了语言、还没冷启」的窗口里会停留在系统 locale（见 AppLocales
+                // .applyConfigurationInPlace 的注释，那个方法存在就是为了补这个洞）。
+                // 协程挂在 viewLifecycleOwner 上，view 一销毁就取消，攥不住这个引用。
+                val ctx = requireContext()
+                // 数字分组也跟着同一份 Configuration 走，别用 Locale.getDefault() ——
+                // 那是 JVM 全局值，跟上面读字符串用的 locale 不保证是同一个。
+                val locale = ConfigurationCompat.getLocales(ctx.resources.configuration)[0]
+                    ?: Locale.getDefault()
+                val prepared = withContext(Dispatchers.IO) {
+                    val numbers = NumberFormat.getIntegerInstance(locale)
+                    raw.mapIndexed { index, novel ->
+                        val words = ctx.getString(
+                            R.string.v3_novel_word_count, numbers.format(novel.text_length ?: 0)
+                        )
+                        SelectableNovel(
+                            index = index,
+                            coverUrl = novel.image_urls?.medium,
+                            title = novel.title.orEmpty(),
+                            author = novel.user?.name.orEmpty(),
+                            // 收藏态直接写在行里：批量收藏 / 取消收藏时，用户得先看得出
+                            // 哪些本来就已经收藏了，否则「实际入队 3 条」会显得莫名其妙。
+                            meta = if (novel.is_bookmarked == true) {
+                                ctx.getString(R.string.bulk_select_novel_meta_bookmarked, words)
+                            } else {
+                                words
+                            },
+                            // 默认全不选（同插画页，issue #922）：想要全部的走 toolbar 一键全选。
+                            selected = false,
+                        )
+                    }
+                }
+                items.clear()
+                items.addAll(prepared)
+                bulkViewModel.items = items
+                adapter.notifyDataSetChanged()
+                refreshHeaderAndCta()
+            }
         }
     }
 
