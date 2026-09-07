@@ -43,6 +43,7 @@ import kotlinx.coroutines.withContext
 private class NovelBulkSelectRequestViewModel : ViewModel() {
     var source: List<Novel>? = null
     var items: List<SelectableNovel>? = null
+    var itemLocaleTags: String? = null
 }
 
 /**
@@ -169,8 +170,11 @@ class NovelBulkSelectV3Fragment : Fragment() {
         btnConfirm.isEnabled = false
         setBookmarkActionsEnabled(false)
 
+        // 缓存里的 meta 已本地化；语言变更需要重建文案，但勾选状态仍从旧列表恢复。
+        val locales = ConfigurationCompat.getLocales(resources.configuration)
+        val localeTags = locales.toLanguageTags()
         val restored = bulkViewModel.items
-        if (restored != null) {
+        if (restored != null && bulkViewModel.itemLocaleTags == localeTags) {
             items.clear()
             items.addAll(restored)
             bulkViewModel.items = items
@@ -188,8 +192,7 @@ class NovelBulkSelectV3Fragment : Fragment() {
                 val ctx = requireContext()
                 // 数字分组也跟着同一份 Configuration 走，别用 Locale.getDefault() ——
                 // 那是 JVM 全局值，跟上面读字符串用的 locale 不保证是同一个。
-                val locale = ConfigurationCompat.getLocales(ctx.resources.configuration)[0]
-                    ?: Locale.getDefault()
+                val locale = locales[0] ?: Locale.getDefault()
                 val prepared = withContext(Dispatchers.IO) {
                     val numbers = NumberFormat.getIntegerInstance(locale)
                     raw.mapIndexed { index, novel ->
@@ -209,13 +212,14 @@ class NovelBulkSelectV3Fragment : Fragment() {
                                 words
                             },
                             // 默认全不选（同插画页，issue #922）：想要全部的走 toolbar 一键全选。
-                            selected = false,
+                            selected = restored?.getOrNull(index)?.selected ?: false,
                         )
                     }
                 }
                 items.clear()
                 items.addAll(prepared)
                 bulkViewModel.items = items
+                bulkViewModel.itemLocaleTags = localeTags
                 adapter.notifyDataSetChanged()
                 refreshHeaderAndCta()
             }

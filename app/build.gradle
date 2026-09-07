@@ -219,6 +219,9 @@ android {
         viewBinding = true
         buildConfig = true // 启用 BuildConfig
     }
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
     packagingOptions {
         jniLibs {
             useLegacyPackaging = true
