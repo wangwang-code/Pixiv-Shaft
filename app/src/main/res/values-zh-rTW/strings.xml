@@ -1539,6 +1539,8 @@
     <string name="novel_chip_series_content_count">章節數  %1$s</string>
     <string name="novel_chip_series_char_count">總字數  %1$s</string>
     <string name="setting_default_novel_format">預設小說下載格式</string>
+    <string name="setting_novel_epub_on_images">小說有插圖時存EPUB</string>
+    <string name="setting_novel_epub_on_images_desc">預設匯出格式為 TXT 時，偵測到正文插圖自動改用 EPUB 匯出</string>
     <string name="setting_default_image_resolution">預設圖片儲存清晰度</string>
     <string name="option_always_ask">每次詢問</string>
     <string name="msg_unknown_format">未知格式：%s</string>

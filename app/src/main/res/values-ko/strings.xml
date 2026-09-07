@@ -1537,6 +1537,8 @@
     <string name="novel_chip_series_content_count">챕터 수  %1$s</string>
     <string name="novel_chip_series_char_count">총 글자 수  %1$s</string>
     <string name="setting_default_novel_format">기본 소설 다운로드 형식</string>
+    <string name="setting_novel_epub_on_images">소설에 일러스트가 있으면 EPUB로 저장</string>
+    <string name="setting_novel_epub_on_images_desc">기본 형식이 TXT인 경우 본문에 일러스트가 있으면 자동으로 EPUB로 내보냅니다</string>
     <string name="setting_default_image_resolution">기본 이미지 저장 해상도</string>
     <string name="option_always_ask">항상 묻기</string>
     <string name="msg_unknown_format">알 수 없는 형식: %s</string>
