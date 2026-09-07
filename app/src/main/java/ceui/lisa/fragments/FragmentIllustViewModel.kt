@@ -23,6 +23,8 @@ import ceui.pixiv.utils.hasTrustedCaption
 import ceui.pixiv.utils.isFullDetail
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -90,11 +92,24 @@ class FragmentIllustViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             val states = DownloadRecordStateSource(
                 invalidations = { id ->
-                    // Both sources replay current data: reopening the page always probes afresh.
-                    // Wait for the bean too, so late detail hydration cannot leave a stale button.
+                    // Only this work's indexed record presence can invalidate a table-driven probe.
+                    // Unrelated downloads must not repeat SAF/legacy LIKE scans for the open work.
+                    val recordChanges = DownloadRecordStateSource.recordChanges(
+                        id, ManagerReactive.doneTableInvalidations,
+                    ) { key ->
+                        withContext(downloadProbeDispatcher) {
+                            AppDatabase.getAppDatabase(appContext).downloadDao()
+                                .hasDownloadRecordByIllustIdIndexed(key)
+                        }
+                    }
+                    // Bookmark/view counters cannot affect a saved path. Preserve real metadata
+                    // changes (title, author, page URLs, etc.) and the initial/reopened-page probe.
+                    val fileMetadata = ObjectPool.get<Illust>(id).asFlow()
+                        .map { it.copy(is_bookmarked = null, total_bookmarks = null, total_view = null) }
+                        .distinctUntilChanged()
                     combine(
-                        ManagerReactive.doneTableInvalidations,
-                        ObjectPool.get<Illust>(id).asFlow(),
+                        recordChanges,
+                        fileMetadata,
                     ) { _, _ -> Unit }.conflate()
                 },
                 probe = { id ->

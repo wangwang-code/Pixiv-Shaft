@@ -8,9 +8,14 @@ import ceui.pixiv.imageloader.ImageRequest
 import ceui.pixiv.imageloader.ImageTaskRegistry
 import ceui.pixiv.progress.ProgressTracker
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -146,6 +151,32 @@ class DownloadImageSharingTest {
         ImageTaskRegistry.remove(url)
         assertNull(ImageLoaderV3.awaitExistingFile(url) { fail("unexpected progress") })
         assertNull(ImageTaskRegistry.peekTask(url))
+    }
+
+    @Test fun `cache evicted before save observes success fails instead of occupying a slot forever`() = runTest(dispatcher) {
+        val result = CompletableDeferred<File>()
+        val image = ImageLoadTask(ImageRequest("https://example.test/evicted.jpg"), this,
+            object : ImageFetcher {
+                override suspend fun fetch(url: String, onProgress: (Int) -> Unit): File = result.await()
+            }, { 0L })
+        val waiterScheduler = TestCoroutineScheduler()
+        val waiterScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(waiterScheduler))
+        try {
+            image.start()
+            runCurrent()
+            val waiting = waiterScope.async { runCatching { image.awaitFile() } }
+            waiterScheduler.runCurrent()
+            val file = tempImage()
+            result.complete(file)
+            runCurrent() // Image task reaches Success; save worker has not consumed it yet.
+            assertTrue(file.delete())
+            waiterScheduler.runCurrent()
+            assertTrue("save must settle when a completed cache file disappears", waiting.isCompleted)
+            assertTrue(waiting.await().exceptionOrNull() is IOException)
+        } finally {
+            waiterScope.cancel()
+            waiterScheduler.runCurrent()
+        }
     }
 
     @Test fun `independent download traffic cannot update display progress for the same URL`() {

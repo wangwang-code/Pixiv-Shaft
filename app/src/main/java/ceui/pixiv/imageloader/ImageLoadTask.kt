@@ -99,14 +99,15 @@ class ImageLoadTask(
         if (_state.value is ImageLoadState.Error) retry() else start()
         return when (val terminal = state.onEach {
             if (it is ImageLoadState.Loading) onProgress(it.percent)
-        }.first { state ->
-            when (state) {
-                is ImageLoadState.Success -> state.file.isUsableImageFile()
-                is ImageLoadState.Error -> true
-                else -> false
+        }.first { it.isTerminal }) {
+            is ImageLoadState.Success -> {
+                // Cache eviction can race Success delivery. It will not produce another state,
+                // so rejecting Success in first's predicate would leave a save waiting forever.
+                if (!terminal.file.isUsableImageFile()) {
+                    throw IOException("image cache disappeared before use: ${terminal.file.path}")
+                }
+                terminal.file
             }
-        }) {
-            is ImageLoadState.Success -> terminal.file
             is ImageLoadState.Error -> throw terminal.cause
             else -> error("unreachable non-terminal state: $terminal")
         }

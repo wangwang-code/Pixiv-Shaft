@@ -103,6 +103,60 @@ class DownloadRecordStateSourceTest {
         assertEquals(StateEntry.Value(true), seen.last())
     }
 
+    @Test fun `unrelated completions do not repeat expensive file or legacy probes`() = runTest(dispatcher) {
+        val changes = MutableStateFlow(0)
+        var recorded = false
+        var fullProbes = 0
+        val source = DownloadRecordStateSource(
+            { key -> DownloadRecordStateSource.recordChanges(key, changesAsUnits(changes)) { recorded } },
+            { fullProbes++; recorded },
+        )
+        val seen = mutableListOf<StateEntry<Boolean>>()
+        val job = backgroundScope.launch { source.observe(42).collect { seen.add(it) } }
+        runCurrent()
+        repeat(100) { changes.value++; runCurrent() }
+        assertEquals(1, fullProbes)
+        recorded = true
+        changes.value++
+        runCurrent()
+        assertEquals(2, fullProbes)
+        assertEquals(StateEntry.Value(true), seen.last())
+        recorded = false // Removing the last record must also invalidate this work.
+        changes.value++
+        runCurrent()
+        assertEquals(3, fullProbes)
+        assertEquals(StateEntry.Value(false), seen.last())
+        job.cancel()
+        runCurrent()
+        source.observe(42).first { it is StateEntry.Value }
+        assertEquals("reopening must refresh even with unchanged records", 4, fullProbes)
+    }
+
+    @Test fun `indexed query recovery invalidates even when record flag is unchanged`() = runTest(dispatcher) {
+        val changes = MutableStateFlow(0)
+        var readFails = false
+        var fullProbes = 0
+        val source = DownloadRecordStateSource(
+            { key -> DownloadRecordStateSource.recordChanges(key, changesAsUnits(changes)) {
+                if (readFails) error("database busy")
+                false
+            } },
+            { fullProbes++; if (readFails) error("database busy"); false },
+        )
+        val seen = mutableListOf<StateEntry<Boolean>>()
+        backgroundScope.launch { source.observe(42).collect { seen.add(it) } }
+        runCurrent()
+        readFails = true
+        changes.value++
+        runCurrent()
+        assertEquals(StateEntry.Unknown, seen.last())
+        readFails = false
+        changes.value++
+        runCurrent()
+        assertEquals(3, fullProbes)
+        assertEquals(StateEntry.Value(false), seen.last())
+    }
+
     @Test fun `cancelling a hidden view cancels its probe without emitting a stale result`() = runTest(dispatcher) {
         var cancelled = false
         val source = DownloadRecordStateSource({ changesAsUnits(MutableStateFlow(0)) }, {

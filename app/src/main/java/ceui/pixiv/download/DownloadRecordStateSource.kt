@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import timber.log.Timber
 
 /**
@@ -43,5 +44,22 @@ internal class DownloadRecordStateSource(
 
     companion object {
         const val LOG_TAG = "IllustDownloadState"
+
+        /** Filter table-wide ticks with a cheap indexed lookup before any legacy/file probe. */
+        fun recordChanges(
+            key: Long,
+            changes: Flow<Unit>,
+            hasIndexedRecord: suspend (Long) -> Boolean,
+        ): Flow<Unit> = changes.map {
+            try {
+                StateEntry.Value(hasIndexedRecord(key))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Timber.tag(LOG_TAG).w(error, "indexed check failed illustId=%d", key)
+                // A recovered lookup must emit even if the Boolean matches the pre-error value.
+                StateEntry.Unknown
+            }
+        }.distinctUntilChanged().map { Unit }
     }
 }
