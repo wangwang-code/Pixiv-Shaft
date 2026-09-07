@@ -112,7 +112,10 @@ data class NovelSeriesCardFeedItem(
 }
 
 /** 多选态变化（进入/退出多选、勾选/取消勾选）的增量刷新 payload，避免重绑图片。 */
-private object NovelSeriesSelectionPayload
+internal object NovelSeriesSelectionPayload {
+    fun canBindSelectionOnly(payloads: List<Any>): Boolean =
+        payloads.isNotEmpty() && payloads.all { it === this }
+}
 
 // ── FeedSource：首页 = 头部条目 + 章节卡；后续页 = 仅章节卡（游标 = next_url）──
 
@@ -257,7 +260,8 @@ fun novelSeriesCardRenderer(): FeedRenderer<NovelSeriesCardFeedItem, CellNovelV3
             if (oldItem.novel == newItem.novel) NovelSeriesSelectionPayload else null
         },
         bindPayloads = { cell, payloads ->
-            if (payloads.any { it === NovelSeriesSelectionPayload }) {
+            // RecyclerView 会合并多次更新；混入全量刷新标记时必须回退，不能漏绑小说内容。
+            if (NovelSeriesSelectionPayload.canBindSelectionOnly(payloads)) {
                 bindNovelSeriesCardSelection(cell.binding, cell.item)
                 true
             } else {
