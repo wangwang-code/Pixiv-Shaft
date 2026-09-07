@@ -1,6 +1,6 @@
 # 通用 Kotlin 通信系统
 
-已实现第一版：`:communication` 纯 Kotlin/JVM 内核、`:communication-android` 生命周期扩展，
+已实现第一版：`:communication` 纯 Kotlin/JVM 内核、`app` 内的生命周期扩展，
 并接入 app 的 `ServicesProvider.communicationScope`。内核不依赖 Android、Room、OkHttp
 或业务模型。持久化 Inbox 是后续扩展，当前不提供跨进程补投与处理确认。
 
@@ -31,7 +31,7 @@ flowchart LR
 ## 2. 模块与入口
 
 - [communication](../communication/src/main/kotlin/ceui/pixiv/communication)：API、作用域、事件邮箱、按 key 的状态存储。
-- [communication-android](../communication-android/src/main/kotlin/ceui/pixiv/communication/android/LifecycleSubscriptions.kt)：`collectIn` 扩展。
+- [LifecycleSubscriptions](../app/src/main/java/ceui/pixiv/communication/android/LifecycleSubscriptions.kt)：`collectIn` 扩展。
 - [ServicesProvider](../app/src/main/java/ceui/pixiv/services/ServiceProvider.kt)：app 的进程容器访问入口，实例由 `Shaft` 持有。
 - [下载业务接入设计](download-state-integration.md)：下载领域的后续迁移设计；现有下载广播、轮询尚未迁移。
 
@@ -207,8 +207,7 @@ handler 主动抛出的取消会结束该订阅，生命周期 STOP 引发的取
 ## 8. 验证与后续边界
 
 ```bash
-./gradlew :communication:test :communication-android:testDebugUnitTest \
-  :communication-android:lintDebug \
+./gradlew :communication:test :app:testGithubDebugUnitTest \
   :app:compileGithubDebugKotlin :app:compileGithubDebugJavaWithJavac
 ```
 
