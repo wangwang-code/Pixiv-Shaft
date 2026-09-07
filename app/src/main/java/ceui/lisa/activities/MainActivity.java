@@ -34,6 +34,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.ViewGroupCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
@@ -347,6 +348,10 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
      * 收起 / 恢复的触发见 {@link BottomBarAutoHide}(不能靠 CoordinatorLayout 的嵌套滚动分发)。
      */
     private void setUpAutoHidingBottomBar() {
+        // Android 10 及以下会把内容区改写的 inset 继续传给同级底栏，导致底栏把自身高度
+        // 再加进 padding，布局后重新分发又继续增高，最终遮满首页。让修改只影响子树；
+        // 装在 DrawerLayout 根上，确保侧栏也能收到原始系统 inset。
+        ViewGroupCompat.installCompatInsetsDispatch(baseBind.drawerLayout);
         ViewCompat.setOnApplyWindowInsetsListener(baseBind.contentHost, (v, windowInsets) -> {
             Insets navBars = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars());
             int bottom = Math.max(navBars.bottom, baseBind.navigationView.getHeight());
