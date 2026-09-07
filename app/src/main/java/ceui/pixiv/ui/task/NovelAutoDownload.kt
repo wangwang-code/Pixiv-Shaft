@@ -114,11 +114,12 @@ object NovelAutoDownload {
                 NovelTextCache.put(novel.id, it)
             }
         }
-        // 自动下载属于默认 TXT 快路径：有插图且开关开启时静默改用 EPUB。
-        val format = if (NovelExportManager.shouldAutoEpubForDefaultTxt(ExportFormat.Txt, entry.tokens)) {
+        // 只有显式默认 TXT 才能转 EPUB；“每次询问”在后台回退 TXT，其他默认格式原样使用。
+        val configuredFormat = NovelExportManager.resolveConfiguredFormat() ?: ExportFormat.Txt
+        val format = if (NovelExportManager.shouldAutoEpubForDefaultTxt(configuredFormat, entry.tokens)) {
             ExportFormat.Epub
         } else {
-            ExportFormat.Txt
+            configuredFormat
         }
         when (val result = NovelExportManager.export(
             context = context,

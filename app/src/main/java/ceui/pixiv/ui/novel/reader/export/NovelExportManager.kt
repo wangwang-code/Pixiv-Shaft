@@ -49,6 +49,7 @@ object NovelExportManager {
      */
     fun shouldAutoEpubForDefaultTxt(format: ExportFormat, tokens: List<ContentToken>): Boolean =
         format == ExportFormat.Txt &&
+            resolveConfiguredFormat() == ExportFormat.Txt &&
             Shaft.sSettings.isDefaultNovelExportEpubOnImages &&
             tokens.any { it is ContentToken.PixivImage || it is ContentToken.UploadedImage }
 

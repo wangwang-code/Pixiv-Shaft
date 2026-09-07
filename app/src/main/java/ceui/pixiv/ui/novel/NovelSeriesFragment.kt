@@ -310,30 +310,37 @@ class NovelSeriesFragment :
     }
 
     private suspend fun askMergeTxtOrEpub(): ExportFormat? = withContext(Dispatchers.Main) {
-        suspendCancellableCoroutine { cont ->
-            if (!isAdded) {
-                cont.resume(null)
-                return@suspendCancellableCoroutine
-            }
-            val dialog = WitDialog.MenuDialogBuilder(requireContext())
-                .setTitle(getString(R.string.setting_novel_epub_on_images))
-                .addItems(
-                    arrayOf(getString(R.string.format_txt), getString(R.string.format_epub)),
-                ) { d, which ->
-                    if (cont.isActive) {
-                        cont.resume(if (which == 0) ExportFormat.Txt else ExportFormat.Epub)
+        var dialog: WitDialog? = null
+        try {
+            suspendCancellableCoroutine { cont ->
+                if (!isAdded) {
+                    cont.resume(null)
+                    return@suspendCancellableCoroutine
+                }
+                val created = WitDialog.MenuDialogBuilder(requireContext())
+                    .setTitle(getString(R.string.setting_novel_epub_on_images))
+                    .addItems(
+                        arrayOf(getString(R.string.format_txt), getString(R.string.format_epub)),
+                    ) { d, which ->
+                        if (cont.isActive) {
+                            cont.resume(if (which == 0) ExportFormat.Txt else ExportFormat.Epub)
+                        }
+                        d.dismiss()
                     }
-                    d.dismiss()
-                }
-                .addAction(getString(R.string.action_cancel)) { d, _ ->
+                    .addAction(getString(R.string.action_cancel)) { d, _ ->
+                        if (cont.isActive) cont.resume(null)
+                        d.dismiss()
+                    }
+                    .create()
+                dialog = created
+                created.setOnDismissListener {
                     if (cont.isActive) cont.resume(null)
-                    d.dismiss()
                 }
-                .create()
-            dialog.setOnDismissListener {
-                if (cont.isActive) cont.resume(null)
+                created.show()
             }
-            dialog.show()
+        } finally {
+            // Activity 销毁会取消抓取协程；同步关闭依附旧 Activity 的窗口。
+            dialog?.dismiss()
         }
     }
 
