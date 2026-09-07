@@ -3,11 +3,15 @@ package ceui.lisa.core;
 
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonDeserializer;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,6 +32,7 @@ import java.util.stream.Collectors;
 import ceui.lisa.R;
 import ceui.lisa.activities.Shaft;
 import ceui.lisa.database.AppDatabase;
+import ceui.lisa.database.DownloadDao;
 import ceui.lisa.database.DownloadEntity;
 import ceui.lisa.database.DownloadingEntity;
 import ceui.lisa.download.DownloadFileFactory;
@@ -43,6 +48,7 @@ import ceui.lisa.utils.DownloadLimitTypeUtil;
 import ceui.lisa.utils.Params;
 import ceui.lisa.utils.PixivOperate;
 import ceui.pixiv.download.DownloadsRegistry;
+import ceui.pixiv.api.model.Illust;
 import ceui.pixiv.download.RecordedPageProbe;
 import ceui.pixiv.download.StageStore;
 import ceui.pixiv.download.aria2.Aria2Dispatcher;
@@ -52,6 +58,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import okio.ByteString;
 import timber.log.Timber;
 
 public class Manager {
@@ -150,49 +157,78 @@ public class Manager {
     }
 
     /**
-     * 恢复未完成的下载任务。每条记录的 taskGson 内嵌完整 Illust (~80KB)，
-     * 过去全表加载在主线程触发过 OOM (CursorWindow.nativeGetString)。改为：
-     *   1) 后台线程执行，避免阻塞 UI 启动；
-     *   2) 限制条数，并先 trim 历史堆积条目；
-     *   3) 包一层 try/catch，OOM/DB 异常时静默跳过而不让启动崩溃。
+     * 后台分批读取全部未完成任务，不裁剪持久化队列。Cursor 每次只取一条 JSON，
+     * 同作品多 P 共用一个 Illust，避免整库 JSON 和重复作品对象同时驻留内存。
      */
-    private static final int MAX_RESTORE_ITEMS = 100;
+    private static final int RESTORE_BATCH_SIZE = 20;
+    private boolean restoreStarted;
+    private int restoreGeneration;
+    // Guarded by this. Keep URLs even if their live tasks finish/get deleted during recovery.
+    private java.util.Set<String> restoreLiveUrls;
 
     // 字节级限速已彻底删除（debug 调试可视化的 500KB/s 节流）。
     // 唯一保留的是 BulkObjectFetcher.RATE_LIMIT_MS（页间 API 间隔，防 pixiv 429）。
 
-    public void restore() {
+    public synchronized void restore() {
+        if (restoreStarted) return;
+        restoreStarted = true;
+        final int generation = restoreGeneration;
+        restoreLiveUrls = content.stream().map(DownloadItem::getUrl).collect(Collectors.toSet());
         IO.execute(() -> {
+            boolean failed = false;
             try {
-                AppDatabase db = AppDatabase.getAppDatabase(mContext);
-                db.downloadDao().trimDownloading(MAX_RESTORE_ITEMS);
-                List<DownloadingEntity> downloadingEntities =
-                        db.downloadDao().getRecentDownloading(MAX_RESTORE_ITEMS);
-                if (Common.isEmpty(downloadingEntities)) {
-                    return;
-                }
-                Common.showLog("downloadingEntities " + downloadingEntities.size());
-                List<DownloadItem> restored = new ArrayList<>();
-                for (DownloadingEntity entity : downloadingEntities) {
-                    try {
-                        DownloadItem downloadItem = Shaft.sGson.fromJson(entity.getTaskGson(), DownloadItem.class);
-                        if (downloadItem != null) {
-                            restored.add(downloadItem);
-                        }
-                    } catch (Exception ex) {
-                        Common.showLog("Manager restore parse error: " + ex.getMessage());
-                    }
-                }
+                List<DownloadItem> restored = readRestoredDownloads(
+                        AppDatabase.getAppDatabase(mContext).downloadDao(), Shaft.sGson);
+                if (restored.isEmpty()) return;
                 synchronized (this) {
+                    if (generation != restoreGeneration) return; // User cleared the queue.
+                    restored.removeIf(item -> restoreLiveUrls.contains(item.getUrl()));
+                    restored.addAll(content); // Preserve work added while recovery was running.
                     content = new CopyOnWriteArrayList<>(restored);
                 }
                 ManagerReactive.invalidate();
                 postMain(() ->
                         Common.showToast("下载记录恢复成功"));
             } catch (Throwable t) {
+                failed = true;
                 Common.showLog("Manager restore failed: " + t.getMessage());
+            } finally {
+                synchronized (this) {
+                    if (generation == restoreGeneration) {
+                        restoreLiveUrls = null;
+                        if (failed) restoreStarted = false;
+                    }
+                }
             }
         });
+    }
+
+    static List<DownloadItem> readRestoredDownloads(DownloadDao dao, Gson gson) {
+        // Match the complete metadata, not just the ID: an artwork may have been edited
+        // between two downloads, with different pages or naming-template inputs.
+        // Retain a compact digest rather than every artwork's additional JSON object tree.
+        Map<ByteString, Illust> artworks = new HashMap<>();
+        Gson restoringGson = gson.newBuilder().registerTypeAdapter(Illust.class,
+                (JsonDeserializer<Illust>) (json, type, context) ->
+                        artworks.computeIfAbsent(ByteString.encodeUtf8(json.toString()).sha256(),
+                                key -> gson.fromJson(json, Illust.class))).create();
+        List<DownloadItem> restored = new ArrayList<>();
+        long after = 0;
+        long through = dao.getDownloadingHighWaterMark();
+        while (true) {
+            try (Cursor cursor = dao.getDownloadingBatch(after, through, RESTORE_BATCH_SIZE)) {
+                if (!cursor.moveToFirst()) return restored;
+                do {
+                    after = cursor.getLong(0);
+                    try {
+                        DownloadItem item = restoringGson.fromJson(cursor.getString(1), DownloadItem.class);
+                        if (item != null && item.getIllust() != null) restored.add(item);
+                    } catch (Exception e) {
+                        Common.showLog("Manager restore parse error: " + e.getMessage());
+                    }
+                } while (cursor.moveToNext());
+            }
+        }
     }
 
     public static Manager get() {
@@ -261,6 +297,7 @@ public class Manager {
     private void safeAdd(DownloadItem item) {
         Common.showLog("Manager safeAdd " + item.getUuid());
         content.add(item);
+        if (restoreLiveUrls != null) restoreLiveUrls.add(item.getUrl());
         final DownloadItem toPersist = item;
         IO.execute(() -> {
             try {
@@ -332,6 +369,7 @@ public class Manager {
                     if (item != null && !existingUrls.contains(item.getUrl())) {
                         // content.add 必须同步:triggerPump 的 getFirstReady 靠 content 立刻变长。
                         content.add(item);
+                        if (restoreLiveUrls != null) restoreLiveUrls.add(item.getUrl());
                         existingUrls.add(item.getUrl());
                         accepted.add(item);
                     }
@@ -496,6 +534,8 @@ public class Manager {
         stopAll();
         AppDatabase.getAppDatabase(mContext).downloadDao().deleteAllDownloading();
         synchronized (this) {
+            restoreGeneration++;
+            restoreLiveUrls = null;
             content.clear();
         }
         ManagerReactive.invalidate();
