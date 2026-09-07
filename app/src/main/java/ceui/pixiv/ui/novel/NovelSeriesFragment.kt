@@ -16,6 +16,7 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
@@ -24,6 +25,7 @@ import ceui.lisa.R
 import ceui.lisa.databinding.ItemBigReadButtonBinding
 import ceui.pixiv.witstudio.theme.V3Palette
 import ceui.pixiv.api.Client
+import ceui.pixiv.chat.base.viewModels as directViewModel
 import ceui.loxia.Novel
 import ceui.pixiv.api.model.NovelSeriesResp
 import ceui.pixiv.widgets.ProgressIndicator
@@ -64,6 +66,17 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 
+/** 系列下载的待确认动作，跨旋转保留在 Fragment ViewModel 中。 */
+class NovelSeriesDownloadRequestViewModel : ViewModel() {
+    var pendingAction: PendingAction? = null
+
+    enum class PendingAction {
+        MERGE,
+        BATCH_SELECTED,
+        DOWNLOAD_ALL,
+    }
+}
+
 /**
  * 小说系列 V3 详情页（feeds 框架版）。hero + 作者 + 档案 + 简介 + 「作品列表」标题 + 章节卡。
  * 数据住在 [feedViewModel]（[NovelSeriesFeedSource]）；多选态住在 [selectionModel]
@@ -86,6 +99,8 @@ class NovelSeriesFragment :
     }
 
     private val selectionModel by viewModels<NovelSeriesSelectionViewModel>()
+
+    private val novelDownloadRequest by directViewModel { NovelSeriesDownloadRequestViewModel() }
 
     private var singleDownloadBtn: View? = null
     private var multiSelectBar: View? = null
@@ -260,12 +275,30 @@ class NovelSeriesFragment :
         if (format != null) {
             startMergeDownload(format, allowAutoEpub = true)
         } else {
+            novelDownloadRequest.pendingAction = NovelSeriesDownloadRequestViewModel.PendingAction.MERGE
             ExportSheet().show(childFragmentManager, ExportSheet.TAG)
         }
     }
 
     override fun onExportFormatChosen(format: ExportFormat) {
-        startMergeDownload(format)
+        val action = novelDownloadRequest.pendingAction
+        novelDownloadRequest.pendingAction = null
+        when (action) {
+            NovelSeriesDownloadRequestViewModel.PendingAction.BATCH_SELECTED -> {
+                val novels = selectedNovels()
+                val ordered = loadedNovels().distinctBy { it.id }
+                if (novels.isNotEmpty()) {
+                    startBatchDownloadSelected(novels, ordered, format)
+                }
+            }
+            NovelSeriesDownloadRequestViewModel.PendingAction.DOWNLOAD_ALL -> {
+                launchDownloadAll(format)
+            }
+            NovelSeriesDownloadRequestViewModel.PendingAction.MERGE -> {
+                startMergeDownload(format)
+            }
+            null -> Unit
+        }
     }
 
     private fun startMergeDownload(format: ExportFormat, allowAutoEpub: Boolean = false) {
@@ -353,9 +386,20 @@ class NovelSeriesFragment :
         // 系列位置按已加载的完整章节序列算，不能按选中子集的下标算——
         // 勾选第 3、5、9 章时，文件名 / 信息头里要的是 3、5、9 而不是 1、2、3。
         val ordered = loadedNovels().distinctBy { it.id }
+        val format = NovelExportManager.resolveConfiguredFormat()
+        if (format != null) {
+            startBatchDownloadSelected(novels, ordered, format)
+        } else {
+            novelDownloadRequest.pendingAction = NovelSeriesDownloadRequestViewModel.PendingAction.BATCH_SELECTED
+            ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+        }
+    }
+
+    private fun startBatchDownloadSelected(novels: List<Novel>, ordered: List<Novel>, format: ExportFormat) {
         BatchDownloadNovelsTask(
             activity = requireActivity(),
             novels = novels,
+            format = format,
             onFinished = { failures -> onBatchDownloadFinished(failures) },
             seriesPositions = seriesPositionsOf(ordered),
             seriesTotal = seriesTotalCount(loadedCount = ordered.size),
@@ -397,6 +441,16 @@ class NovelSeriesFragment :
     }
 
     private fun launchDownloadAll() {
+        val format = NovelExportManager.resolveConfiguredFormat()
+        if (format != null) {
+            launchDownloadAll(format)
+        } else {
+            novelDownloadRequest.pendingAction = NovelSeriesDownloadRequestViewModel.PendingAction.DOWNLOAD_ALL
+            ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+        }
+    }
+
+    private fun launchDownloadAll(format: ExportFormat) {
         object : FetchAllTask<Novel, NovelSeriesResp>(
             requireActivity(),
             taskFullName = "下载系列小说全部作品-${seriesId}",
@@ -414,6 +468,7 @@ class NovelSeriesFragment :
                 BatchDownloadNovelsTask(
                     activity = requireActivity(),
                     novels = results,
+                    format = format,
                     onFinished = { failures -> onBatchDownloadFinished(failures) },
                     seriesPositions = seriesPositionsOf(ordered),
                     seriesTotal = ordered.size,
