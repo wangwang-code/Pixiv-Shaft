@@ -25,6 +25,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -65,6 +66,9 @@ import ceui.lisa.utils.PixivOperate
 import ceui.lisa.utils.SearchTypeUtil
 import ceui.lisa.utils.ShareIllust
 import ceui.pixiv.cache.ObjectPool
+import ceui.pixiv.communication.StateEntry
+import ceui.pixiv.communication.android.collectIn
+import ceui.pixiv.download.DownloadRecordStateSource
 import ceui.pixiv.widgets.ProgressTextButton
 import ceui.pixiv.utils.combineLatest
 import ceui.pixiv.utils.toTagsBeans
@@ -114,7 +118,7 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
         val illustId: Int = b.getInt("illust_id")
     }
     private val vm by viewModels<FragmentIllustViewModel> {
-        FragmentIllustViewModel.Factory(safeArgs.illustId.toLong())
+        FragmentIllustViewModel.Factory(safeArgs.illustId.toLong(), requireContext())
     }
     private var mReceiver: CallBackReceiver? = null
     private var recyHeight = 0
@@ -148,10 +152,19 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
         illustLiveData.observe(viewLifecycleOwner) { illust ->
             updateIllust(illust)
         }
-        vm.hasDownload.observe(viewLifecycleOwner) { downloaded ->
-            baseBind.download.setText(
-                if (downloaded) R.string.string_337 else R.string.string_72
-            )
+        vm.downloadState.collectIn(
+            viewLifecycleOwner,
+            minState = Lifecycle.State.RESUMED,
+            onError = { Timber.tag(DownloadRecordStateSource.LOG_TAG).e(it, "subscription failed illustId=%d", safeArgs.illustId) },
+        ) { state ->
+            if (state is StateEntry.Value) {
+                val label = if (state.value) R.string.string_337 else R.string.string_72
+                baseBind.download.setText(label)
+                Timber.tag(DownloadRecordStateSource.LOG_TAG).d(
+                    "render illustId=%d downloaded=%s label=%s",
+                    safeArgs.illustId, state.value, getString(label),
+                )
+            }
         }
         // 网页 ajax 的每页真实宽高到达 → 喂给当前大图 adapter,预置各页展示 ratio(下载前摆准高度)。
         // adapter 建得比数据晚就由这里补,数据比 adapter 晚就由建处 seed(见 IllustAdapter 建处)。
@@ -960,12 +973,15 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
             val resolution = Shaft.sSettings.defaultImageResolution.let {
                 if (it.isNullOrEmpty()) Params.IMAGE_RESOLUTION_ORIGINAL else it
             }
+            Timber.tag(DownloadRecordStateSource.LOG_TAG).d(
+                "click illustId=%d pages=%d resolution=%s label=%s",
+                illust.id, illust.page_count, resolution, baseBind.download.text,
+            )
             if (illust.page_count == 1) {
                 IllustDownload.downloadIllustFirstPageWithResolution(illust, resolution, mContext as BaseActivity<*>)
             } else {
                 IllustDownload.downloadIllustAllPagesWithResolution(illust, resolution, mContext as BaseActivity<*>)
             }
-            checkDownload()
             if (Shaft.sSettings.isAutoPostLikeWhenDownload && !illust.isBookmarked) {
                 PixivOperate.postLikeDefaultStarType(illust)
             }
@@ -985,6 +1001,10 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
             )
             CheckableDialogBuilder(mContext)
                 .addItems(IMG_RESOLUTION_TITLE) { dialog, which ->
+                    Timber.tag(DownloadRecordStateSource.LOG_TAG).d(
+                        "click_resolution illustId=%d pages=%d resolution=%s",
+                        illust.id, illust.page_count, IMG_RESOLUTION[which],
+                    )
                     if (illust.page_count == 1) {
                         IllustDownload.downloadIllustFirstPageWithResolution(
                             illust, IMG_RESOLUTION[which], mContext as BaseActivity<*>
@@ -1017,17 +1037,9 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
     override fun onResume() {
         super.onResume()
         if (!isSnapshotMode) {
-            checkDownload()
             // 从二级大图页返回后，把进程内已缓存 ORIGINAL 的页直接回填，不重绑列表。
             (baseBind.recyclerView.adapter as? IllustAdapter)?.showCachedOriginalOverlays()
         }
-    }
-
-    private fun checkDownload() {
-        // SAF existence probe + Room query are heavy on main thread for multi-P
-        // works (issue #835 — ANR on Android 16). VM runs both on Dispatchers.IO
-        // and posts the result back to hasDownload LiveData.
-        vm.refreshDownloadState(mContext)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
