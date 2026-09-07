@@ -205,7 +205,9 @@ class NovelSeriesFragment :
             textSize = 15f
             gravity = Gravity.CENTER
             setTypeface(typeface, Typeface.BOLD)
-            background = palette.pillSecondary(28 * density, (1 * density).toInt())
+            // 用不透明 cardFill 代替半透明 pillSecondary：多选条悬浮在列表上，
+            // 半透明底会透出下方章节封面，textAccent 文字难以辨认。
+            background = palette.settingsCardBg(28 * density, (1 * density).toInt())
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
                 .apply { marginEnd = (10 * density).toInt() }
             setOnClick { onClickSelectAllToggle() }
