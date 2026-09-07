@@ -33,12 +33,24 @@ object NovelExportManager {
         ExportFormat.Pdf to PdfExporter(),
     )
 
+    /**
+     * 解析「默认小说下载格式」设置。
+     *
+     * @return 非空 = 直接使用该格式；null = 设置为「每次询问」，调用方应弹格式选择。
+     */
+    fun resolveConfiguredFormat(): ExportFormat? {
+        val name = Shaft.sSettings.defaultNovelExportFormat
+        return if (name.isNullOrBlank()) null else ExportFormat.entries.firstOrNull { it.name == name }
+    }
+
     suspend fun export(
         context: Context,
         format: ExportFormat,
         novel: Novel?,
         webNovel: WebNovel,
         tokens: List<ContentToken>,
+        seriesOrder: Int? = null,
+        seriesTotal: Int? = null,
     ): ExportResult = withContext(Dispatchers.IO) {
         val destination: RelativePath = if (novel != null) {
             DownloadItems.novelDestinationFromLoxia(
@@ -46,7 +58,9 @@ object NovelExportManager {
                 extOverride = format.extension,
                 // 序号取「系列可见列表位置」（SeriesCache，reader 场景通常已缓存），
                 // 让单篇下载 / 导出和系列批量下载渲染出同一个文件名（issue #964）。
-                seriesOrder = seriesOrderOf(novel),
+                // 批量/系列下载调用方可直接传 seriesOrder/seriesTotal 覆盖缓存查询。
+                seriesOrder = seriesOrder ?: seriesOrderOf(novel),
+                seriesTotal = seriesTotal,
             )
         } else {
             // No Novel — only the web payload. Best-effort meta;

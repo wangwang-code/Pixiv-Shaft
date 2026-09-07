@@ -16,6 +16,7 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
@@ -24,6 +25,7 @@ import ceui.lisa.R
 import ceui.lisa.databinding.ItemBigReadButtonBinding
 import ceui.pixiv.witstudio.theme.V3Palette
 import ceui.pixiv.api.Client
+import ceui.pixiv.chat.base.viewModels as directViewModel
 import ceui.loxia.Novel
 import ceui.pixiv.api.model.NovelSeriesResp
 import ceui.pixiv.widgets.ProgressIndicator
@@ -42,6 +44,7 @@ import ceui.pixiv.ui.detail.seriesAuthorRenderer
 import ceui.pixiv.ui.detail.seriesCaptionRenderer
 import ceui.pixiv.ui.detail.seriesSectionLabelRenderer
 import ceui.pixiv.ui.novel.reader.export.ExportFormat
+import ceui.pixiv.ui.novel.reader.export.NovelExportManager
 import ceui.pixiv.ui.novel.reader.ui.ExportFormatCallback
 import ceui.pixiv.ui.novel.reader.ui.ExportSheet
 import ceui.pixiv.ui.task.BatchDownloadNovelsTask
@@ -58,6 +61,17 @@ import ceui.pixiv.witstudio.dialog.WitDialog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
+
+/** 系列下载的待确认动作，跨旋转保留在 Fragment ViewModel 中。 */
+class NovelSeriesDownloadRequestViewModel : ViewModel() {
+    var pendingAction: PendingAction? = null
+
+    enum class PendingAction {
+        MERGE,
+        BATCH_SELECTED,
+        DOWNLOAD_ALL,
+    }
+}
 
 /**
  * 小说系列 V3 详情页（feeds 框架版）。hero + 作者 + 档案 + 简介 + 「作品列表」标题 + 章节卡。
@@ -81,6 +95,8 @@ class NovelSeriesFragment :
     }
 
     private val selectionModel by viewModels<NovelSeriesSelectionViewModel>()
+
+    private val novelDownloadRequest by directViewModel { NovelSeriesDownloadRequestViewModel() }
 
     private var singleDownloadBtn: View? = null
     private var multiSelectBar: View? = null
@@ -244,23 +260,42 @@ class NovelSeriesFragment :
     private fun heroDetail() = feedViewModel.uiState.value.items
         .filterIsInstance<NovelSeriesHeroFeedItem>().firstOrNull()?.series
 
-    /**
-     * 合并下载：只负责弹格式选择，真正的动作在 [onExportFormatChosen] 里按当时的 VM 状态重建。
-     *
-     * 刻意**不**把动作攒成一个 `pendingMergeAction` 闭包挂在 Fragment 字段上：[ExportSheet] 是
-     * DialogFragment，旋转 / 切深色会重建宿主 Fragment，而对话框由 FragmentManager 自动恢复并
-     * 回调到**新**实例上——旧实例的字段连同闭包一起没了，用户选完格式点确定会静默无反应。
-     * 合并要用的数据（系列详情、已加载章节）全都住在比 view 长命的 VM 里，现取即可。
-     */
     private fun launchMergeDownload() {
         if (heroDetail() == null) {
             Toaster.show(getString(R.string.merge_download_failed_empty))
             return
         }
-        ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+        val format = NovelExportManager.resolveConfiguredFormat()
+        if (format != null) {
+            startMergeDownload(format)
+        } else {
+            novelDownloadRequest.pendingAction = NovelSeriesDownloadRequestViewModel.PendingAction.MERGE
+            ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+        }
     }
 
     override fun onExportFormatChosen(format: ExportFormat) {
+        val action = novelDownloadRequest.pendingAction
+        novelDownloadRequest.pendingAction = null
+        when (action) {
+            NovelSeriesDownloadRequestViewModel.PendingAction.BATCH_SELECTED -> {
+                val novels = selectedNovels()
+                val ordered = loadedNovels().distinctBy { it.id }
+                if (novels.isNotEmpty()) {
+                    startBatchDownloadSelected(novels, ordered, format)
+                }
+            }
+            NovelSeriesDownloadRequestViewModel.PendingAction.DOWNLOAD_ALL -> {
+                launchDownloadAll(format)
+            }
+            NovelSeriesDownloadRequestViewModel.PendingAction.MERGE -> {
+                startMergeDownload(format)
+            }
+            null -> Unit
+        }
+    }
+
+    private fun startMergeDownload(format: ExportFormat) {
         val detail = heroDetail()
         if (detail == null) {
             Toaster.show(getString(R.string.merge_download_failed_empty))
@@ -308,9 +343,20 @@ class NovelSeriesFragment :
         // 系列位置按已加载的完整章节序列算，不能按选中子集的下标算——
         // 勾选第 3、5、9 章时，文件名 / 信息头里要的是 3、5、9 而不是 1、2、3。
         val ordered = loadedNovels().distinctBy { it.id }
+        val format = NovelExportManager.resolveConfiguredFormat()
+        if (format != null) {
+            startBatchDownloadSelected(novels, ordered, format)
+        } else {
+            novelDownloadRequest.pendingAction = NovelSeriesDownloadRequestViewModel.PendingAction.BATCH_SELECTED
+            ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+        }
+    }
+
+    private fun startBatchDownloadSelected(novels: List<Novel>, ordered: List<Novel>, format: ExportFormat) {
         BatchDownloadNovelsTask(
             activity = requireActivity(),
             novels = novels,
+            format = format,
             onFinished = { failures -> onBatchDownloadFinished(failures) },
             seriesPositions = seriesPositionsOf(ordered),
             seriesTotal = seriesTotalCount(loadedCount = ordered.size),
@@ -352,6 +398,16 @@ class NovelSeriesFragment :
     }
 
     private fun launchDownloadAll() {
+        val format = NovelExportManager.resolveConfiguredFormat()
+        if (format != null) {
+            launchDownloadAll(format)
+        } else {
+            novelDownloadRequest.pendingAction = NovelSeriesDownloadRequestViewModel.PendingAction.DOWNLOAD_ALL
+            ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+        }
+    }
+
+    private fun launchDownloadAll(format: ExportFormat) {
         object : FetchAllTask<Novel, NovelSeriesResp>(
             requireActivity(),
             taskFullName = "下载系列小说全部作品-${seriesId}",
@@ -369,6 +425,7 @@ class NovelSeriesFragment :
                 BatchDownloadNovelsTask(
                     activity = requireActivity(),
                     novels = results,
+                    format = format,
                     onFinished = { failures -> onBatchDownloadFinished(failures) },
                     seriesPositions = seriesPositionsOf(ordered),
                     seriesTotal = ordered.size,
