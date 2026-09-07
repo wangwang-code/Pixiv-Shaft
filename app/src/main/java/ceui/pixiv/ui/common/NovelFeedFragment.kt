@@ -70,6 +70,7 @@ private data class NovelImageRequestKey(
 
 private const val NOVEL_SPOILER_BLUR_RADIUS = 25
 private const val NOVEL_SPOILER_BLUR_SAMPLING = 3
+private const val NOVEL_CARD_EXPORT_TAG = "NovelCardExportSheet"
 
 /** 小说列表页“下载这一篇”的待确认请求，跨旋转保留在 Fragment ViewModel 中。 */
 class NovelDownloadRequestViewModel : ViewModel() {
@@ -112,11 +113,24 @@ abstract class NovelFeedFragment(
             startNovelDownload(novel, format)
         } else {
             novelDownloadRequest.pendingNovel = novel
-            ExportSheet().show(childFragmentManager, ExportSheet.TAG)
+            ExportSheet().show(childFragmentManager, NOVEL_CARD_EXPORT_TAG)
         }
     }
 
     override fun onExportFormatChosen(format: ExportFormat) {
+        finishNovelCardDownload(format)
+    }
+
+    final override fun onExportFormatChosen(format: ExportFormat, sourceTag: String?) {
+        if (sourceTag == NOVEL_CARD_EXPORT_TAG) {
+            // NovelTextFragment 同时展示相关推荐卡；不能让它的详情导出回调吞掉卡片请求。
+            finishNovelCardDownload(format)
+        } else {
+            onExportFormatChosen(format)
+        }
+    }
+
+    private fun finishNovelCardDownload(format: ExportFormat) {
         val novel = novelDownloadRequest.pendingNovel ?: return
         novelDownloadRequest.pendingNovel = null
         startNovelDownload(novel, format)
