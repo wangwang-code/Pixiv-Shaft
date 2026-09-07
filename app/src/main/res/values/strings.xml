@@ -3234,4 +3234,13 @@
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">当前引擎：%1$s</string>
     <string name="cloud_translate_usage_section_engine">AI 翻译额度 · %1$s</string>
+    <string name="artwork_poster_save">保存作品海报</string>
+    <string name="artwork_poster_generating">正在生成高清作品海报…</string>
+    <string name="artwork_poster_saved">作品海报已保存到相册</string>
+    <string name="artwork_poster_failed">海报生成失败：%1$s</string>
+    <string name="artwork_poster_image_unavailable">作品图片不可用</string>
+    <string name="artwork_poster_destination_unavailable">无法创建相册文件</string>
+    <string name="artwork_poster_encode_failed">海报编码失败</string>
+    <string name="artwork_poster_unknown_author">未知作者</string>
+    <string name="artwork_poster_untitled">无题</string>
 </resources>

@@ -50,6 +50,7 @@ import ceui.pixiv.ui.translate.ComicTextDetectorModelManager
 import ceui.pixiv.ui.translate.MangaOcrModel
 import ceui.pixiv.ui.translate.MangaOcrModelManager
 import ceui.pixiv.ui.translate.MangaTranslatePrepSheet
+import ceui.pixiv.ui.share.saveArtworkPoster
 import ceui.pixiv.ui.upscale.BackgroundRemover
 import ceui.pixiv.ui.upscale.ModelPickerDialog
 import ceui.pixiv.ui.upscale.RembgModel
@@ -190,6 +191,9 @@ class ImageDetailActivity : BaseActivity<ActivityImageDetailBinding?>() {
                 val illust = mIllust ?: return@setOnClickListener
                 // 动图(ugoira)的 original 是 zip,画质增强/抠图没法处理,不展示这两项(对齐 V3 详情页)。
                 val actions = mutableListOf<Pair<CharSequence, () -> Unit>>()
+                actions += getString(R.string.artwork_poster_save) to {
+                    saveArtworkPoster(illust, baseBind!!.viewPager.currentItem)
+                }
                 if (!illust.isGif()) {
                     actions += getString(R.string.string_ai_upscale) to {
                         ModelPickerDialog.pickOrUseDefault(supportFragmentManager) { model ->

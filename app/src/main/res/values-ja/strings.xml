@@ -2971,4 +2971,13 @@
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">現在のエンジン：%1$s</string>
     <string name="cloud_translate_usage_section_engine">AI 翻訳の上限 · %1$s</string>
+    <string name="artwork_poster_save">作品ポスターを保存</string>
+    <string name="artwork_poster_generating">高画質の作品ポスターを作成中…</string>
+    <string name="artwork_poster_saved">作品ポスターをギャラリーに保存しました</string>
+    <string name="artwork_poster_failed">ポスターを作成できませんでした：%1$s</string>
+    <string name="artwork_poster_image_unavailable">作品画像を利用できません</string>
+    <string name="artwork_poster_destination_unavailable">ギャラリーファイルを作成できません</string>
+    <string name="artwork_poster_encode_failed">ポスターをエンコードできません</string>
+    <string name="artwork_poster_unknown_author">不明な作者</string>
+    <string name="artwork_poster_untitled">無題</string>
 </resources>

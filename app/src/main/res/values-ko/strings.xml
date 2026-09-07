@@ -2971,4 +2971,13 @@
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">현재 엔진: %1$s</string>
     <string name="cloud_translate_usage_section_engine">AI 번역 한도 · %1$s</string>
+    <string name="artwork_poster_save">작품 포스터 저장</string>
+    <string name="artwork_poster_generating">고해상도 작품 포스터 만드는 중…</string>
+    <string name="artwork_poster_saved">작품 포스터를 갤러리에 저장했습니다</string>
+    <string name="artwork_poster_failed">포스터를 만들지 못했습니다: %1$s</string>
+    <string name="artwork_poster_image_unavailable">작품 이미지를 사용할 수 없습니다</string>
+    <string name="artwork_poster_destination_unavailable">갤러리 파일을 만들 수 없습니다</string>
+    <string name="artwork_poster_encode_failed">포스터를 인코딩할 수 없습니다</string>
+    <string name="artwork_poster_unknown_author">알 수 없는 작가</string>
+    <string name="artwork_poster_untitled">제목 없음</string>
 </resources>

@@ -71,6 +71,7 @@ import ceui.pixiv.ui.common.IllustFeedFragment
 import ceui.pixiv.ui.common.staggerIllustRenderer
 import ceui.pixiv.wallpaper.WallpaperSetter
 import ceui.pixiv.ui.share.shareFirstImage
+import ceui.pixiv.ui.share.saveArtworkPoster
 import ceui.pixiv.ui.task.PageLoadRetryController
 import ceui.pixiv.ui.task.renderImageLoadStatusBanner
 import ceui.pixiv.ui.upscale.IllustAiHelper
@@ -1375,6 +1376,10 @@ class ArtworkV3Fragment : IllustFeedFragment(R.layout.fragment_artwork_v3) {
             }
             item(getString(R.string.string_454), R.drawable.ic_share_black_24dp) {
                 shareFirstImage(illust)
+            }
+            item(getString(R.string.artwork_poster_save), R.drawable.ic_setcat_photo) {
+                // 多图作品按右上角页码浮标当前指向的那一页生成；已经滑进简介区时回退首图。
+                saveArtworkPoster(illust, pageProgressIndex.coerceAtLeast(0))
             }
             item(getString(R.string.string_355_2), R.drawable.ic_baseline_launch_24) {
                 Common.copy(requireContext(), ShareIllust.URL_Head + illust.id)

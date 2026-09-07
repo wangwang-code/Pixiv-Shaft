@@ -2973,4 +2973,13 @@
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">Current engine: %1$s</string>
     <string name="cloud_translate_usage_section_engine">AI translation limits · %1$s</string>
+    <string name="artwork_poster_save">Save artwork poster</string>
+    <string name="artwork_poster_generating">Creating a high-resolution artwork poster…</string>
+    <string name="artwork_poster_saved">Artwork poster saved to your gallery</string>
+    <string name="artwork_poster_failed">Couldn’t create poster: %1$s</string>
+    <string name="artwork_poster_image_unavailable">Artwork image is unavailable</string>
+    <string name="artwork_poster_destination_unavailable">Couldn’t create a gallery file</string>
+    <string name="artwork_poster_encode_failed">Couldn’t encode the poster</string>
+    <string name="artwork_poster_unknown_author">Unknown artist</string>
+    <string name="artwork_poster_untitled">Untitled</string>
 </resources>
