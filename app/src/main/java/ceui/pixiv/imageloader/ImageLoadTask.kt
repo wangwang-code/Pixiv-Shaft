@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -92,11 +93,13 @@ class ImageLoadTask(
      * 挂起直到成功拿到文件;已成功则立即返回,失败则抛出原因。
      * 供「保存到相册」等下游用例复用**同一个**共享任务的结果,不重复下载。
      */
-    suspend fun awaitFile(): File {
+    suspend fun awaitFile(onProgress: (Int) -> Unit = {}): File {
         // 上一次失败就重来一次(对齐旧 TaskPool「取到 errored 任务即换新重下」的行为);否则幂等启动。
         // 这是显式「我要这个文件」的取用点(保存/AI),不是列表滚动,重试一次不会造成风暴。
         if (_state.value is ImageLoadState.Error) retry() else start()
-        return when (val terminal = state.first { state ->
+        return when (val terminal = state.onEach {
+            if (it is ImageLoadState.Loading) onProgress(it.percent)
+        }.first { state ->
             when (state) {
                 is ImageLoadState.Success -> state.file.isUsableImageFile()
                 is ImageLoadState.Error -> true

@@ -47,10 +47,12 @@ import ceui.pixiv.download.RecordedPageProbe;
 import ceui.pixiv.download.StageStore;
 import ceui.pixiv.download.aria2.Aria2Dispatcher;
 import ceui.pixiv.imageloader.ImageLoaderV3;
+import ceui.pixiv.progress.ProgressTracker;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import timber.log.Timber;
 
 public class Manager {
 
@@ -118,8 +120,8 @@ public class Manager {
      * 改用 H1.1：每个 sync 请求拿独立 TCP 连接（OkHttp ConnectionPool 默认
      * maxIdleConnections=5 够 5 并发用），各自独立 flow control，真正并行。
      *
-     * `newBuilder()` 继承全局 client 的 DNS / SSL / interceptor / ProgressManager
-     * 配置，只覆盖 protocols。直连模式下全局已经是 H1.1，这里再强制一次也无害（幂等）。
+     * `newBuilder()` 继承全局 client 的 DNS / SSL 等配置，移除图片显示用的 URL 进度
+     * 拦截器：Manager 自己在 pumpBytes 上报进度，不能再把独立请求的进度混进显示任务。
      */
     private volatile OkHttpClient mDownloadOkHttpClient;
     private OkHttpClient getDownloadOkHttpClient() {
@@ -128,12 +130,18 @@ public class Manager {
         synchronized (this) {
             if (mDownloadOkHttpClient == null) {
                 OkHttpClient base = ((Shaft) Shaft.getContext()).getOkHttpClient();
-                mDownloadOkHttpClient = base.newBuilder()
-                        .protocols(java.util.Collections.singletonList(okhttp3.Protocol.HTTP_1_1))
-                        .build();
+                mDownloadOkHttpClient = buildDownloadOkHttpClient(
+                        base, ((Shaft) Shaft.getContext()).getDownloadProgress());
             }
             return mDownloadOkHttpClient;
         }
+    }
+
+    static OkHttpClient buildDownloadOkHttpClient(OkHttpClient base, ProgressTracker displayProgress) {
+        OkHttpClient.Builder builder = base.newBuilder()
+                .protocols(java.util.Collections.singletonList(okhttp3.Protocol.HTTP_1_1));
+        builder.networkInterceptors().remove(displayProgress.getInterceptor());
+        return builder.build();
     }
 
     private Manager() {
@@ -672,7 +680,6 @@ public class Manager {
             }
 
             final String dlUrl = downloadItem.getUrl();
-            final boolean isGif = downloadItem.getIllust().isGif();
             // content:// 目标（MediaStore / SAF）走 staging + 断点续传：目标行延迟到 commit
             // 才建（见 startDownloadChain / runStagedTransfer）。file:// / gif 走直写。
             final boolean staged = factory.targetIsContent();
@@ -719,32 +726,9 @@ public class Manager {
                 targetUri = opened;
             }
 
-            // 缓存命中探测（本地已有完整字节则跳过网络）：
-            //  - 续传进行中（staged: stage 已有字节；直写: passSize>0）→ 跳过 peek；
-            //  - gif → 跳过；其余 miss 时 cachedFile 为 null。
-            final long resumeBytes = staged ? stageLenForUrl(context, dlUrl) : passSize;
-            final File cachedFile;
-            if (resumeBytes > 0) {
-                Common.showLog("[DL-CACHE] skip peek, resume in progress (" + resumeBytes + "B), url=" + dlUrl);
-                cachedFile = null;
-            } else if (isGif) {
-                Common.showLog("[DL-CACHE] skip peek, illust isGif, url=" + dlUrl);
-                cachedFile = null;
-            } else {
-                File peeked = ImageLoaderV3.peekFile(dlUrl);
-                if (peeked != null) {
-                    Common.showLog("[DL-CACHE] HIT path=" + peeked.getAbsolutePath()
-                            + " size=" + peeked.length() + " url=" + dlUrl);
-                    cachedFile = peeked;
-                } else {
-                    Common.showLog("[DL-CACHE] MISS url=" + dlUrl);
-                    cachedFile = null;
-                }
-            }
-
             // 回主线程启动下载链（handle 赋值需要在一致的线程）
             postMain(() ->
-                startDownloadChain(context, downloadItem, factory, cachedFile, targetUri, dlUrl, passSize, staged));
+                startDownloadChain(context, downloadItem, factory, targetUri, dlUrl, passSize, staged));
         });
     }
 
@@ -802,7 +786,7 @@ public class Manager {
     }
 
     private void startDownloadChain(Context context, DownloadItem downloadItem,
-            DownloadFileFactory factory, File cachedFile, Uri targetUri, String dlUrl,
+            DownloadFileFactory factory, Uri targetUri, String dlUrl,
             long passSize, boolean staged) {
         // 下载专用 H1.1 client，规避 H2 stream priority 串行化（详见 getDownloadOkHttpClient）。
         OkHttpClient client = getDownloadOkHttpClient();
@@ -842,6 +826,31 @@ public class Manager {
 
         DownloadTask d = DownloadTask.launch(IO, emitter -> {
             try {
+                // 必须在可取消的 DownloadTask Body 内等待，不能占住主线程，也不能在
+                // handles 注册前等待。staged 的本地复制会从 0 覆写，旧 partial 不会混入。
+                File cachedFile = null;
+                Timber.tag("SharedImageDownload").d("LOOKUP illustId=%d page=%d image=%s",
+                        downloadItem.getIllust().getId(), downloadItem.getIndex(),
+                        dlUrl.substring(dlUrl.lastIndexOf('/') + 1));
+                if (!downloadItem.getIllust().isGif() && (staged || passSize == 0)) {
+                    final int[] lastLoggedPercent = {-1};
+                    cachedFile = ImageLoaderV3.awaitExistingFile(dlUrl, percent -> {
+                        reportProgress(downloadItem, percent, 0L, 0L, false, emitter);
+                        int bucket = percent / 10;
+                        if (bucket != lastLoggedPercent[0]) {
+                            lastLoggedPercent[0] = bucket;
+                            Timber.tag("SharedImageDownload").d(
+                                    "PROGRESS illustId=%d page=%d percent=%d",
+                                    downloadItem.getIllust().getId(), downloadItem.getIndex(), percent);
+                        }
+                    });
+                }
+                if (emitter.isDisposed()) return;
+                Timber.tag("SharedImageDownload").d(
+                        "%s illustId=%d page=%d image=%s",
+                        cachedFile != null ? "COPY_SHARED_FILE" : "USE_DOWNLOAD_TRANSFER",
+                        downloadItem.getIllust().getId(), downloadItem.getIndex(),
+                        dlUrl.substring(dlUrl.lastIndexOf('/') + 1));
                 if (staged) {
                     runStagedTransfer(context, downloadItem, factory, cachedFile, dlUrl,
                             stageDir, stageKey, stageFile, metaFile, client, emitter);
@@ -1051,7 +1060,7 @@ public class Manager {
                 inputStream = new java.io.FileInputStream(cachedFile);
                 outputStream = openStageStream(stageFile, 0);
                 expectedTotal = cachedFile.length();
-                pumpBytes(inputStream, outputStream, downloadItem, 0L, expectedTotal, emitter);
+                pumpBytes(inputStream, outputStream, downloadItem, 0L, expectedTotal, true, emitter);
                 if (emitter.isDisposed()) return;
                 closeQuietly(outputStream); outputStream = null;
                 closeQuietly(inputStream); inputStream = null;
@@ -1093,6 +1102,8 @@ public class Manager {
                         }
                     }
                     Common.showLog("[STAGED-DL] fetch url=" + dlUrl + " existing=" + existingLen);
+                    Timber.tag("SharedImageDownload").d("NETWORK illustId=%d page=%d resumeBytes=%d",
+                            downloadItem.getIllust().getId(), downloadItem.getIndex(), existingLen);
                     response = client.newCall(rb.build()).execute();
                     int code = response.code();
                     // 416 也要放行进 decideWrite（可能意味着"字节已齐"）。
@@ -1127,7 +1138,7 @@ public class Manager {
                         boolean append = dec.mode == StageStore.WriteMode.APPEND;
                         inputStream = body.byteStream();
                         outputStream = openStageStream(stageFile, append ? dec.startOffset : 0);
-                        pumpBytes(inputStream, outputStream, downloadItem, dec.startOffset, dec.total, emitter);
+                        pumpBytes(inputStream, outputStream, downloadItem, dec.startOffset, dec.total, false, emitter);
                         if (emitter.isDisposed()) return;  // 暂停 / 取消：保留 stage 续传
                         closeQuietly(outputStream); outputStream = null;
                         closeQuietly(inputStream); inputStream = null;
@@ -1213,6 +1224,8 @@ public class Manager {
                 if (passSize > 0) {
                     rb.addHeader("Range", "bytes=" + passSize + "-");
                 }
+                Timber.tag("SharedImageDownload").d("NETWORK illustId=%d page=%d resumeBytes=%d",
+                        downloadItem.getIllust().getId(), downloadItem.getIndex(), passSize);
                 response = client.newCall(rb.build()).execute();
                 if (!response.isSuccessful()) {
                     emitter.onError(new IOException("HTTP " + response.code()));
@@ -1238,7 +1251,7 @@ public class Manager {
                 emitter.onError(new IOException("Cannot open output stream for " + targetUri));
                 return;
             }
-            pumpBytes(inputStream, outputStream, downloadItem, passSize, totalSize, emitter);
+            pumpBytes(inputStream, outputStream, downloadItem, passSize, totalSize, cachedFile != null, emitter);
             if (emitter.isDisposed()) return;
             closeQuietly(outputStream); outputStream = null;
             emitter.onNext(targetUri.toString());
@@ -1261,7 +1274,7 @@ public class Manager {
      * @return 实际写到的总字节数（含 startOffset）。
      */
     private long pumpBytes(InputStream in, OutputStream out, DownloadItem item,
-            long startOffset, long totalSize, DownloadEmitter emitter) throws IOException {
+            long startOffset, long totalSize, boolean localCopy, DownloadEmitter emitter) throws IOException {
         byte[] buffer = new byte[8192];
         long downloaded = startOffset;
         int lastProgress = 0;
@@ -1280,29 +1293,33 @@ public class Manager {
             if (pctChanged || timeElapsed) {
                 lastProgress = progress;
                 lastUpdateNs = nowNs;
-                long finalDownloaded = downloaded;
-                long finalTotal = totalSize;
-                int finalProgress = progress;
-                postMain(() -> {
-                    DownloadProgress dp = new DownloadProgress(finalProgress, finalDownloaded, finalTotal);
-                    item.setNonius(finalProgress);
-                    item.setCurrentSize(finalDownloaded);
-                    item.setTotalSize(finalTotal);
-                    item.setState(DownloadItem.DownloadState.DOWNLOADING);
-                    ManagerReactive.invalidate();
-                    try {
-                        Callback<DownloadProgress> c = getCallback(item.getUuid());
-                        if (c != null) {
-                            c.doSomething(dp);
-                        }
-                    } catch (Exception e) {
-                        Common.showLog("Manager progress callback error: " + e.getMessage());
-                    }
-                });
+                reportProgress(item, progress, downloaded, totalSize, localCopy, emitter);
             }
         }
         out.flush();
         return downloaded;
+    }
+
+    private void reportProgress(DownloadItem item, int percent, long downloaded, long total,
+            boolean localCopy, DownloadEmitter emitter) {
+        if (emitter.isDisposed()) return;
+        postMain(() -> {
+            // 暂停/重试以后迟到的共享进度不能把旧任务重新标成 DOWNLOADING。
+            if (emitter.isDisposed()) return;
+            // 显示任务可能已到 99%；随后本地复制不能把下载列表的进度拉回 0%。
+            int progress = localCopy ? Math.max(item.getNonius(), percent) : percent;
+            item.setNonius(progress);
+            item.setCurrentSize(downloaded);
+            item.setTotalSize(total);
+            item.setState(DownloadItem.DownloadState.DOWNLOADING);
+            ManagerReactive.invalidate();
+            try {
+                Callback<DownloadProgress> callback = getCallback(item.getUuid());
+                if (callback != null) callback.doSomething(new DownloadProgress(progress, downloaded, total));
+            } catch (Exception e) {
+                Common.showLog("Manager progress callback error: " + e.getMessage());
+            }
+        });
     }
 
     /**
@@ -1344,16 +1361,6 @@ public class Manager {
     private static void runCatchingDelete(java.io.File f) {
         if (f != null) {
             try { f.delete(); } catch (Exception ignored) {}
-        }
-    }
-
-    /** 某 url 对应 stage {@code .part} 的现有字节数（0 = 没有，可整段新下 / 允许缓存命中）。 */
-    private long stageLenForUrl(Context context, String url) {
-        try {
-            java.io.File dir = new java.io.File(context.getCacheDir(), StageStore.STAGE_DIR_NAME);
-            return StageStore.partFile(dir, StageStore.keyForUrl(url)).length();
-        } catch (Exception e) {
-            return 0L;
         }
     }
 
