@@ -252,7 +252,7 @@ class NovelTextFragment :
 
     override fun onClickDownloadNovel(sender: View, novelId: Long) {
         val format = NovelExportManager.resolveConfiguredFormat()
-        if (format != null) executeExport(format) else showExportSheet()
+        if (format != null) executeExport(format, allowAutoEpub = true) else showExportSheet()
     }
 
     override fun onLongClickDownloadNovel(sender: View, novelId: Long) {
@@ -267,9 +267,8 @@ class NovelTextFragment :
         executeExport(format)
     }
 
-    private fun executeExport(format: ExportFormat) {
+    private fun executeExport(format: ExportFormat, allowAutoEpub: Boolean = false) {
         val appContext = requireContext().applicationContext
-        Toaster.show(getString(R.string.msg_export_start, getString(format.displayNameResId)))
         viewLifecycleOwner.lifecycleScope.launch {
             val result = runCatching {
                 val novel = ObjectPool.get<Novel>(novelId).value
@@ -285,9 +284,16 @@ class NovelTextFragment :
                 if (cached == null) {
                     NovelTextCache.put(novelId, NovelTextCache.Entry(web, tokens))
                 }
+                // 仅默认 TXT 快路径允许静默切 EPUB；手动在“每次询问”里选 TXT 不切。
+                val actualFormat = if (allowAutoEpub && NovelExportManager.shouldAutoEpubForDefaultTxt(format, tokens)) {
+                    ExportFormat.Epub
+                } else {
+                    format
+                }
+                Toaster.show(getString(R.string.msg_export_start, getString(actualFormat.displayNameResId)))
                 NovelExportManager.export(
                     context = appContext,
-                    format = format,
+                    format = actualFormat,
                     novel = novel,
                     webNovel = web,
                     tokens = tokens,

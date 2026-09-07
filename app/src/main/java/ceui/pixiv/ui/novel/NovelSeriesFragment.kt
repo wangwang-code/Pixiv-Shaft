@@ -58,8 +58,12 @@ import ceui.pixiv.utils.ppppx
 import ceui.pixiv.utils.setOnClick
 import com.hjq.toast.Toaster
 import ceui.pixiv.witstudio.dialog.WitDialog
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** 系列下载的待确认动作，跨旋转保留在 Fragment ViewModel 中。 */
@@ -260,6 +264,10 @@ class NovelSeriesFragment :
     private fun heroDetail() = feedViewModel.uiState.value.items
         .filterIsInstance<NovelSeriesHeroFeedItem>().firstOrNull()?.series
 
+    /**
+     * 合并下载：有默认格式直接走快路径；默认“每次询问”时弹 [ExportSheet]。
+     * 默认 TXT 且开启「有插图时存 EPUB」时，抓完章节后由 [startMergeDownload] 弹 TXT/EPUB 质询。
+     */
     private fun launchMergeDownload() {
         if (heroDetail() == null) {
             Toaster.show(getString(R.string.merge_download_failed_empty))
@@ -267,7 +275,7 @@ class NovelSeriesFragment :
         }
         val format = NovelExportManager.resolveConfiguredFormat()
         if (format != null) {
-            startMergeDownload(format)
+            startMergeDownload(format, allowAutoEpub = true)
         } else {
             novelDownloadRequest.pendingAction = NovelSeriesDownloadRequestViewModel.PendingAction.MERGE
             ExportSheet().show(childFragmentManager, ExportSheet.TAG)
@@ -295,7 +303,7 @@ class NovelSeriesFragment :
         }
     }
 
-    private fun startMergeDownload(format: ExportFormat) {
+    private fun startMergeDownload(format: ExportFormat, allowAutoEpub: Boolean = false) {
         val detail = heroDetail()
         if (detail == null) {
             Toaster.show(getString(R.string.merge_download_failed_empty))
@@ -308,6 +316,8 @@ class NovelSeriesFragment :
             knownNovels = dedup,
             format = format,
             stopSignal = stopSignal,
+            allowAutoEpub = allowAutoEpub,
+            confirmFormat = if (allowAutoEpub) { _ -> askMergeTxtOrEpub() } else null,
         )
         val config = FetchProgressDialog.Config(
             title = "merge-novel-series",
@@ -332,6 +342,41 @@ class NovelSeriesFragment :
             onCancelRequested = { stopSignal.set(true) },
         )
         FetchProgressDialog.show(requireActivity().supportFragmentManager, flow, config)
+    }
+
+    private suspend fun askMergeTxtOrEpub(): ExportFormat? = withContext(Dispatchers.Main) {
+        var dialog: WitDialog? = null
+        try {
+            suspendCancellableCoroutine { cont ->
+                if (!isAdded) {
+                    cont.resume(null)
+                    return@suspendCancellableCoroutine
+                }
+                val created = WitDialog.MenuDialogBuilder(requireContext())
+                    .setTitle(getString(R.string.setting_novel_epub_on_images))
+                    .addItems(
+                        arrayOf(getString(R.string.format_txt), getString(R.string.format_epub)),
+                    ) { d, which ->
+                        if (cont.isActive) {
+                            cont.resume(if (which == 0) ExportFormat.Txt else ExportFormat.Epub)
+                        }
+                        d.dismiss()
+                    }
+                    .addAction(getString(R.string.action_cancel)) { d, _ ->
+                        if (cont.isActive) cont.resume(null)
+                        d.dismiss()
+                    }
+                    .create()
+                dialog = created
+                created.setOnDismissListener {
+                    if (cont.isActive) cont.resume(null)
+                }
+                created.show()
+            }
+        } finally {
+            // Activity 销毁会取消抓取协程；同步关闭依附旧 Activity 的窗口。
+            dialog?.dismiss()
+        }
     }
 
     private fun launchBatchDownloadSelected() {

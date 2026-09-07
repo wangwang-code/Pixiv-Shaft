@@ -1537,6 +1537,8 @@
     <string name="novel_chip_series_content_count">Bölüm sayısı  %1$s</string>
     <string name="novel_chip_series_char_count">Toplam karakter  %1$s</string>
     <string name="setting_default_novel_format">Varsayılan roman indirme biçimi</string>
+    <string name="setting_novel_epub_on_images">Roman içinde çizim varsa EPUB olarak kaydet</string>
+    <string name="setting_novel_epub_on_images_desc">Varsayılan biçim TXT olduğunda, metinde çizim algılanırsa otomatik olarak EPUB olarak dışa aktar</string>
     <string name="setting_default_image_resolution">Varsayılan görsel kayıt çözünürlüğü</string>
     <string name="option_always_ask">Her seferinde sor</string>
     <string name="msg_unknown_format">Bilinmeyen biçim: %s</string>

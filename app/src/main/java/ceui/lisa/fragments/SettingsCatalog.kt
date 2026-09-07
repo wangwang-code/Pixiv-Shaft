@@ -169,6 +169,7 @@ object SettingsCatalog {
         add(Entry(DOWNLOAD, "default_image_resolution_rela", R.string.setting_default_image_resolution, keywords = "清晰度 分辨率 画质 原图 保存 resolution"))
         add(Entry(DOWNLOAD, "write_exif_tags_rela", R.string.setting_write_exif_tags_title, R.string.setting_write_exif_tags_desc, keywords = "标签 关键词 exif xmp 元数据 相册 keywords metadata tags dc:subject"))
         add(Entry(DOWNLOAD, "default_novel_format_rela", R.string.setting_default_novel_format, keywords = "小说 格式 txt epub pdf markdown 导出 export"))
+        add(Entry(DOWNLOAD, "novel_epub_on_images_rela", R.string.setting_novel_epub_on_images, R.string.setting_novel_epub_on_images_desc, keywords = "小说 插图 图片 epub txt 自动 格式 illustration image"))
         add(Entry(DOWNLOAD, "novel_header_rela", R.string.novel_header_settings_title, R.string.novel_header_settings_entry_desc, keywords = "信息头 元信息 头部 字段 作者信息 txt"))
         add(Entry(DOWNLOAD, "download_limit_type_rela", R.string.string_452, keywords = "限制 wifi 流量 蜂窝 移动网络 limit"))
         add(Entry(DOWNLOAD, "max_concurrent_downloads_rela", R.string.setting_max_concurrent_downloads, keywords = "并发 同时 多任务 线程 速度 concurrent"))

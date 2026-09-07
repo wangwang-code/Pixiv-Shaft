@@ -43,6 +43,16 @@ object NovelExportManager {
         return if (name.isNullOrBlank()) null else ExportFormat.entries.firstOrNull { it.name == name }
     }
 
+    /**
+     * 默认 TXT 快路径下，正文含插图且用户开启「有插图时存 EPUB」时改用 EPUB。
+     * 手动在“每次询问”里选择 TXT 不应触发。
+     */
+    fun shouldAutoEpubForDefaultTxt(format: ExportFormat, tokens: List<ContentToken>): Boolean =
+        format == ExportFormat.Txt &&
+            resolveConfiguredFormat() == ExportFormat.Txt &&
+            Shaft.sSettings.isDefaultNovelExportEpubOnImages &&
+            tokens.any { it is ContentToken.PixivImage || it is ContentToken.UploadedImage }
+
     suspend fun export(
         context: Context,
         format: ExportFormat,
