@@ -546,6 +546,7 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
                 new DrawerEntry(R.id.novel_markers, R.string.core_string_novel_marker),
                 new DrawerEntry(R.id.follow_user, R.string.string_321),
                 new DrawerEntry(R.id.nav_fans, R.string.string_322),
+                new DrawerEntry(R.id.nav_referral_plan, R.string.referral_entry),
         });
 
         // 借号用量:服务端两只配额桶的只读视图,紧贴「我的」之后、「记录与管理」之前 ——
@@ -673,6 +674,9 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
         } else if (id == R.id.nav_manage) {
             intent = new Intent(mContext, TemplateActivity.class);
             intent.putExtra(TemplateActivity.EXTRA_FRAGMENT, TemplateRoute.SETTINGS.key);
+        } else if (id == R.id.nav_referral_plan) {
+            intent = new Intent(mContext, TemplateActivity.class);
+            intent.putExtra(TemplateActivity.EXTRA_FRAGMENT, TemplateRoute.REFERRAL_PLAN.key);
         } else if (id == R.id.nav_nana7mi_usage) {
             intent = new Intent(mContext, TemplateActivity.class);
             intent.putExtra(TemplateActivity.EXTRA_FRAGMENT, TemplateRoute.NANA7MI_USAGE.key);

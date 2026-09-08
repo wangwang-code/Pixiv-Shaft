@@ -144,6 +144,7 @@ object TemplateRouteFactory {
 
     @JvmStatic
     fun create(route: TemplateRoute, intent: Intent): Fragment = when (route) {
+        TemplateRoute.REFERRAL_PLAN -> ceui.pixiv.ui.referral.ReferralPlanFragment()
         TemplateRoute.LOGIN -> FragmentLogin()
         TemplateRoute.RELATED_ILLUSTS -> RelatedIllustFeedFragment.newInstance(
             intent.getIntExtra(Params.ILLUST_ID, 0),
