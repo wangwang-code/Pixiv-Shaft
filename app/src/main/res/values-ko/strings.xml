@@ -2961,8 +2961,8 @@
 
     <!-- PixShaft 클라우드 번역 -->
     <string name="cloud_translate_title">PixShaft 클라우드 번역</string>
-    <string name="cloud_translate_desc">댓글·제목·태그·만화 번역을 PixShaft 서버의 AI 번역으로 처리합니다. 프록시 불필요, 사용량 한도 있음. 끄면 내장 Google 번역을 사용합니다. 사용자 지정 AI 번역이 켜져 있으면 그쪽이 우선합니다.</string>
-    <string name="cloud_translate_usage_section">AI 번역 한도</string>
+    <string name="cloud_translate_desc">댓글·제목·태그·만화 번역을 PixShaft 서버의 클라우드 번역으로 처리합니다. 프록시 불필요, 사용량 한도 있음. 끄면 내장 Google 번역을 사용합니다. 사용자 지정 AI 번역이 켜져 있으면 그쪽이 우선합니다.</string>
+    <string name="cloud_translate_usage_section">클라우드 번역 한도</string>
     <string name="cloud_translate_failed_title">클라우드 번역 실패</string>
     <string name="cloud_translate_quota_title">클라우드 번역 한도 도달</string>
     <string name="cloud_translate_quota_session">5시간 번역 한도를 모두 사용했습니다. %1$s 후 복구됩니다</string>
@@ -2970,7 +2970,7 @@
     <string name="cloud_translate_quota_unknown">번역 한도를 모두 사용했습니다. 잠시 후 다시 시도해 주세요</string>
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">현재 엔진: %1$s</string>
-    <string name="cloud_translate_usage_section_engine">AI 번역 한도 · %1$s</string>
+    <string name="cloud_translate_usage_section_engine">클라우드 번역 한도 · %1$s</string>
     <string name="artwork_poster_save">작품 포스터 저장</string>
     <string name="artwork_poster_generating">고해상도 작품 포스터 만드는 중…</string>
     <string name="artwork_poster_saved">작품 포스터를 갤러리에 저장했습니다</string>

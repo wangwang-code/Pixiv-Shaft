@@ -2970,8 +2970,8 @@
 
     <!-- Облачный перевод PixShaft -->
     <string name="cloud_translate_title">Облачный перевод PixShaft</string>
-    <string name="cloud_translate_desc">Комментарии, названия, теги и манга переводятся ИИ на сервере PixShaft — без прокси, с лимитом использования. Выключено = встроенный Google Переводчик. Включённый пользовательский ИИ-перевод имеет приоритет.</string>
-    <string name="cloud_translate_usage_section">Лимиты ИИ-перевода</string>
+    <string name="cloud_translate_desc">Комментарии, названия, теги и манга переводятся на сервере PixShaft — без прокси, с лимитом использования. Выключено = встроенный Google Переводчик. Включённый пользовательский ИИ-перевод имеет приоритет.</string>
+    <string name="cloud_translate_usage_section">Лимиты облачного перевода</string>
     <string name="cloud_translate_failed_title">Облачный перевод не удался</string>
     <string name="cloud_translate_quota_title">Лимит облачного перевода исчерпан</string>
     <string name="cloud_translate_quota_session">5-часовой лимит перевода исчерпан, восстановится через %1$s</string>
@@ -2979,7 +2979,7 @@
     <string name="cloud_translate_quota_unknown">Лимит перевода исчерпан, попробуйте позже</string>
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">Текущий движок: %1$s</string>
-    <string name="cloud_translate_usage_section_engine">Лимиты ИИ-перевода · %1$s</string>
+    <string name="cloud_translate_usage_section_engine">Лимиты облачного перевода · %1$s</string>
     <string name="artwork_poster_save">Сохранить постер работы</string>
     <string name="artwork_poster_generating">Создание постера в высоком разрешении…</string>
     <string name="artwork_poster_saved">Постер сохранён в галерею</string>

@@ -16,6 +16,7 @@ import ceui.pixiv.safe.auth.BearerInterceptor
 import ceui.pixiv.safe.auth.TokenAuthenticator
 import ceui.pixiv.shaftapi.PixshaftApi
 import ceui.pixiv.shaftapi.ShaftHmac
+import ceui.pixiv.shaftapi.TranslateUserAgentInterceptor
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -235,6 +236,7 @@ class ClientManager {
             // authoritative 401 and returns one replay request.
             .addInterceptor(BearerInterceptor(AuthSessionManager))
             .authenticator(TokenAuthenticator(AuthSessionManager))
+            .addInterceptor(TranslateUserAgentInterceptor())
             // X-Shaft-Sign = HMAC-SHA256(被签消息, native SHAFT_EVENTS_HMAC)。签名规则集中在这里，
             // 而不是散到各个 Retrofit 接口上：接口只声明「调什么」，不该顺带背着密码学。
             //
