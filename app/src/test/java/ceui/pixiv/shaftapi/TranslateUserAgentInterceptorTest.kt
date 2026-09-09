@@ -37,7 +37,7 @@ class TranslateUserAgentInterceptorTest {
                 .post(body.toRequestBody()).build()).execute().close()
             val request = server.takeRequest()
             assertEquals(runtimeUa, request.getHeader("User-Agent"))
-            assertEquals("2", request.getHeader("X-Shaft-Translate-Version"))
+            assertEquals("3", request.getHeader("X-Shaft-Translate-Version"))
             assertEquals("signed-body", request.getHeader("X-Shaft-Sign"))
             assertEquals(body, request.body.readUtf8())
         }
@@ -56,7 +56,7 @@ class TranslateUserAgentInterceptorTest {
                     .build()).execute().close()
                 val request = server.takeRequest()
                 assertEquals("existing-agent", request.getHeader("User-Agent"))
-                assertEquals("2", request.getHeader("X-Shaft-Translate-Version"))
+                assertEquals("3", request.getHeader("X-Shaft-Translate-Version"))
             }
         }
     }

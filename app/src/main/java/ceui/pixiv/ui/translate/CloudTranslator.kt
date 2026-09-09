@@ -7,7 +7,7 @@ import ceui.pixiv.session.SessionManager
 import ceui.pixiv.shaftapi.PixshaftApi
 import ceui.pixiv.shaftapi.ShaftHmac
 import ceui.pixiv.shaftapi.TranslateResult
-import ceui.pixiv.shaftapi.translateTexts
+import ceui.pixiv.shaftapi.translateTextsStreaming
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -143,6 +143,7 @@ object CloudTranslator : Translator {
         val lang = serverLangOf(outputLang)
         val results = MutableList(inputs.size) { "" }
         val ranges = chunkRanges(inputs, MAX_BATCH_CHARS, MAX_BATCH_ITEMS)
+        val phases = AiTranslator.PhaseAggregator(onPhase)
         val lastError = AtomicReference<Exception?>(null)
         // 额度用完 / 功能关闭 / 限流：同一个 uid 的其它分片必然同样失败，别再放出去烧限流额度。
         val stopAll = AtomicReference<Exception?>(null)
@@ -155,7 +156,6 @@ object CloudTranslator : Translator {
                         stopAll.get()?.let { return@withPermit null }
                         // 请求即将发出：业务侧从此刻起要拦退出（服务端已经在替我们烧上游 token）。
                         onRequestSent?.invoke()
-                        onPhase?.invoke(AiTranslatePhase.GENERATING)
                         val chars = slice.sumOf { it.length }
                         Timber.tag(TAG).i(
                             "→ POST /v1/account/translate uid=%d items=%d chars=%d lang=%s chunk=[%d,%d)",
@@ -163,7 +163,10 @@ object CloudTranslator : Translator {
                         )
                         // System.nanoTime 而不是 SystemClock：这段要在 JVM 单测里跑，android.os 没桩。
                         val started = System.nanoTime()
-                        val result = api.translateTexts(uid, slice, lang)
+                        val result = api.translateTextsStreaming(uid, slice, lang,
+                            onThinking = { phases.report(AiTranslatePhase.Thinking(it)) },
+                            onGenerating = { phases.report(AiTranslatePhase.Generating) },
+                        )
                         val ms = (System.nanoTime() - started) / 1_000_000
                         when (result) {
                             is TranslateResult.Success -> {

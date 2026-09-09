@@ -150,6 +150,16 @@ interface PixshaftApi {
         @Body body: TranslateRequest,
     ): Response<TranslateResponse>
 
+    /** Explicit opt-in; old APKs continue using the JSON endpoint. */
+    @retrofit2.SkipCallbackExecutor
+    @retrofit2.http.Streaming
+    @retrofit2.http.Headers("Accept: text/event-stream")
+    @POST("v1/account/translate")
+    fun translateStreamRaw(
+        @Body body: TranslateRequest,
+        @Header("X-Shaft-Translate-Trace") trace: String? = null,
+    ): retrofit2.Call<okhttp3.ResponseBody>
+
     /** 云翻译额度只读接口，形状同 [fetchNana7miQuotaRaw]，多一个 `enabled`。 */
     @POST("v1/account/translate/quota")
     suspend fun fetchTranslateQuotaRaw(
@@ -827,39 +837,43 @@ suspend fun PixshaftApi.translateTexts(uid: Long, texts: List<String>, lang: Str
     if (texts.isEmpty()) return TranslateResult.Success(emptyList(), emptyList(), System.currentTimeMillis())
     return try {
         val response = translateRaw(TranslateRequest(uid, texts, lang))
-        when {
-            response.isSuccessful -> {
-                val body = response.body() ?: return TranslateResult.InvalidResponse()
-                val translations = body.translations
-                if (translations == null || translations.size != texts.size) {
-                    return TranslateResult.InvalidResponse()
-                }
-                // Gson 会把 JSON null 原样塞进 List<String>，下游 isNotEmpty() 就是 NPE。服务端
-                // 已把 null 写成 ""，这里再兜一层，别让一个坏元素把整批翻译变成崩溃。
-                TranslateResult.Success(
-                    translations.map { (it as String?) ?: "" },
-                    body.quotas,
-                    body.serverTime ?: System.currentTimeMillis(),
-                    body.plan,
-                    body.engine,
-                )
-            }
-            response.code() == 429 -> TranslateResult.RateLimited(parseRateLimited(response))
-            else -> {
-                val error = parseErrorCode(response)
-                if (response.code() == 503 && error == "translate_disabled") {
-                    TranslateResult.Disabled
-                } else {
-                    TranslateResult.HttpFailure(response.code(), error)
-                }
-            }
-        }
+        decodeTranslationResponse(response, texts.size)
     } catch (ce: CancellationException) {
         throw ce
     } catch (io: java.io.IOException) {
         TranslateResult.NetworkFailure(io)
     } catch (e: Exception) {
         TranslateResult.InvalidResponse(e)
+    }
+}
+
+internal fun decodeTranslationResponse(response: Response<TranslateResponse>, expected: Int): TranslateResult {
+    return when {
+        response.isSuccessful -> {
+            val body = response.body() ?: return TranslateResult.InvalidResponse()
+            val translations = body.translations
+            if (translations == null || translations.size != expected) {
+                return TranslateResult.InvalidResponse()
+            }
+            // Gson 会把 JSON null 原样塞进 List<String>，下游 isNotEmpty() 就是 NPE。服务端
+            // 已把 null 写成 ""，这里再兜一层，别让一个坏元素把整批翻译变成崩溃。
+            TranslateResult.Success(
+                translations.map { (it as String?) ?: "" },
+                body.quotas,
+                body.serverTime ?: System.currentTimeMillis(),
+                body.plan,
+                body.engine,
+            )
+        }
+        response.code() == 429 -> TranslateResult.RateLimited(parseRateLimited(response))
+        else -> {
+            val error = parseErrorCode(response)
+            if (response.code() == 503 && error == "translate_disabled") {
+                TranslateResult.Disabled
+            } else {
+                TranslateResult.HttpFailure(response.code(), error)
+            }
+        }
     }
 }
 

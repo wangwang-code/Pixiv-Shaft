@@ -51,6 +51,19 @@ class CloudTranslatorTest {
         MockResponse().setResponseCode(code).setHeader("Content-Type", "application/json").setBody(body)
 
     @Test
+    fun `云翻译把流式上游状态传给页面而不混入译文`() = runBlocking {
+        server.enqueue(MockResponse().setHeader("Content-Type", "text/event-stream").setBody(
+            "event: phase\ndata: {\"phase\":\"thinking\",\"reasoning_content\":\"推理已转发上游端点\"}\n\n" +
+                "event: phase\ndata: {\"phase\":\"generating\"}\n\n" +
+                "event: result\ndata: {\"translations\":[\"你好\"]}\n\n",
+        ))
+        val phases = CopyOnWriteArrayList<AiTranslatePhase>()
+        val result = CloudTranslator.translateBatchWith(api, 7, listOf("hello"), "zh", onPhase = { phases.add(it) })
+        assertEquals(listOf("你好"), result)
+        assertEquals(listOf(AiTranslatePhase.Thinking("推理已转发上游端点"), AiTranslatePhase.Generating), phases)
+    }
+
+    @Test
     fun `分片乱序完成且部分失败时重复项仍回填原位置`() = runBlocking {
         val a = "a".repeat(1600)
         val b = "b".repeat(1600)
@@ -141,7 +154,7 @@ class CloudTranslatorTest {
         assertEquals(listOf(0 to "你好", 1 to "谢谢"), items.toList())
         assertEquals(2 to 2, progress)
         assertEquals(1, requestSent)
-        assertEquals(AiTranslatePhase.GENERATING, phase)
+        assertEquals(AiTranslatePhase.Generating, phase)
 
         val req = server.takeRequest()
         assertEquals("/v1/account/translate", req.path)

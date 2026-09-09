@@ -14,8 +14,9 @@ internal class TranslateUserAgentInterceptor(
         if (path != "/v1/config" && path != "/v1/account/translate" && path != "/v1/account/translate/quota") {
             return chain.proceed(original)
         }
-        // 配置、用量和实际翻译使用同一能力声明；旧后端忽略此头，请求体签名不变。
-        val request = original.newBuilder().header("X-Shaft-Translate-Version", "2").build()
+        // v3 由服务端按有效会员档位选择 GPT/腾讯；配置、用量和翻译使用同一声明。
+        // 旧 APK 的无版本/v2 路由保持不变，请求体与 HMAC 签名也不变。
+        val request = original.newBuilder().header("X-Shaft-Translate-Version", "3").build()
         if (path != "/v1/account/translate") return chain.proceed(request)
         // 系统没有提供 UA 时使用本应用身份，不伪造浏览器或设备版本。
         val agent = userAgent()?.takeIf { it.isNotBlank() }
