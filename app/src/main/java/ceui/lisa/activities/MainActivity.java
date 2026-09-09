@@ -130,7 +130,8 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
         splashScreen.setKeepOnScreenCondition(() -> !splashResolved);
         super.onCreate(savedInstanceState);
-        if (baseFragments == null || !(baseFragments[getNavigationInitPosition()] instanceof FragmentLeft)) {
+        if (Shaft.sSettings.isRecommendHotTagsFirst()
+                || baseFragments == null || !(baseFragments[getNavigationInitPosition()] instanceof FragmentLeft)) {
             markSplashResolved();
         } else {
             new Handler(Looper.getMainLooper())

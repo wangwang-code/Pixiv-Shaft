@@ -2983,4 +2983,8 @@
     <string name="artwork_poster_encode_failed">Poster kodlanamadı</string>
     <string name="artwork_poster_unknown_author">Bilinmeyen sanatçı</string>
     <string name="artwork_poster_untitled">Başlıksız</string>
+    <string name="recommend_page_content">Öneri sayfası içeriği</string>
+    <string name="recommend_page_works_first">Önerilen eserler - Popüler etiketler</string>
+    <string name="recommend_page_tags_first">Popüler etiketler - Önerilen eserler</string>
+    <string name="recommend_page_content_desc">İllüstrasyon ve roman öneri sayfalarındaki sekme sırasını değiştirir. Uygulamak için uygulamayı yeniden başlatın.</string>
 </resources>

@@ -448,6 +448,17 @@ public class Settings {
     // 关掉后冷启命中磁盘快照就停在快照上，由用户下拉刷新才拉新内容
     private boolean autoRefreshHomeFeed = true;
 
+    // 推荐页页签顺序：默认推荐作品在前；插画和小说共用，重启后生效。
+    private boolean recommendHotTagsFirst = false;
+
+    public boolean isRecommendHotTagsFirst() {
+        return recommendHotTagsFirst;
+    }
+
+    public void setRecommendHotTagsFirst(boolean recommendHotTagsFirst) {
+        this.recommendHotTagsFirst = recommendHotTagsFirst;
+    }
+
     /** @deprecated legacy display-name language；仅供 AppLocalesBootstrap 一次性迁移读取，请使用 {@link ceui.pixiv.i18n.AppLocales}。 */
     @Deprecated
     public String getAppLanguage() {

@@ -2982,4 +2982,8 @@
     <string name="artwork_poster_encode_failed">Couldn’t encode the poster</string>
     <string name="artwork_poster_unknown_author">Unknown artist</string>
     <string name="artwork_poster_untitled">Untitled</string>
+    <string name="recommend_page_content">Recommendation page content</string>
+    <string name="recommend_page_works_first">Recommended works - Trending tags</string>
+    <string name="recommend_page_tags_first">Trending tags - Recommended works</string>
+    <string name="recommend_page_content_desc">Change the tab order on illustration and novel recommendation pages. Restart the app to apply.</string>
 </resources>

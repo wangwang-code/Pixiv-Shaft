@@ -2989,4 +2989,8 @@
     <string name="artwork_poster_encode_failed">Не удалось закодировать постер</string>
     <string name="artwork_poster_unknown_author">Неизвестный автор</string>
     <string name="artwork_poster_untitled">Без названия</string>
+    <string name="recommend_page_content">Содержимое страницы рекомендаций</string>
+    <string name="recommend_page_works_first">Рекомендуемые работы - Популярные теги</string>
+    <string name="recommend_page_tags_first">Популярные теги - Рекомендуемые работы</string>
+    <string name="recommend_page_content_desc">Порядок вкладок на страницах рекомендаций иллюстраций и романов. Для применения перезапустите приложение.</string>
 </resources>

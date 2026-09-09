@@ -3243,4 +3243,8 @@
     <string name="artwork_poster_encode_failed">海报编码失败</string>
     <string name="artwork_poster_unknown_author">未知作者</string>
     <string name="artwork_poster_untitled">无题</string>
+    <string name="recommend_page_content">推荐页面展示内容</string>
+    <string name="recommend_page_works_first">推荐作品-热门标签</string>
+    <string name="recommend_page_tags_first">热门标签-推荐作品</string>
+    <string name="recommend_page_content_desc">调整插画和小说推荐页的页签顺序，重启后生效</string>
 </resources>

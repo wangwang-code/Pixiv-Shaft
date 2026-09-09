@@ -2981,4 +2981,8 @@
     <string name="artwork_poster_encode_failed">海報編碼失敗</string>
     <string name="artwork_poster_unknown_author">未知作者</string>
     <string name="artwork_poster_untitled">無題</string>
+    <string name="recommend_page_content">推薦頁面顯示內容</string>
+    <string name="recommend_page_works_first">推薦作品-熱門標籤</string>
+    <string name="recommend_page_tags_first">熱門標籤-推薦作品</string>
+    <string name="recommend_page_content_desc">調整插畫和小說推薦頁的分頁順序，重新啟動後生效</string>
 </resources>

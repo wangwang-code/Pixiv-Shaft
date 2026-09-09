@@ -2980,4 +2980,8 @@
     <string name="artwork_poster_encode_failed">ポスターをエンコードできません</string>
     <string name="artwork_poster_unknown_author">不明な作者</string>
     <string name="artwork_poster_untitled">無題</string>
+    <string name="recommend_page_content">おすすめページの表示内容</string>
+    <string name="recommend_page_works_first">おすすめ作品 - 人気のタグ</string>
+    <string name="recommend_page_tags_first">人気のタグ - おすすめ作品</string>
+    <string name="recommend_page_content_desc">イラストと小説のおすすめページのタブ順を変更します。アプリの再起動後に反映されます。</string>
 </resources>
