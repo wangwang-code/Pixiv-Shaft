@@ -56,6 +56,7 @@ class TemplateRouteTest {
             "HISTORY" to "浏览记录",
             "WATCH_LATER" to "稍后再看",
             "WEB_LINK" to "网页链接",
+            "REFERRAL_PLAN" to "App推介计划",
             "NANA7MI_USAGE" to "借号用量",
             "SETTINGS" to "设置",
             "SETTINGS_CATEGORY" to "设置分类",

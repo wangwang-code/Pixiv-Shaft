@@ -34,6 +34,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.ViewGroupCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
@@ -129,7 +130,8 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
         splashScreen.setKeepOnScreenCondition(() -> !splashResolved);
         super.onCreate(savedInstanceState);
-        if (baseFragments == null || !(baseFragments[getNavigationInitPosition()] instanceof FragmentLeft)) {
+        if (Shaft.sSettings.isRecommendHotTagsFirst()
+                || baseFragments == null || !(baseFragments[getNavigationInitPosition()] instanceof FragmentLeft)) {
             markSplashResolved();
         } else {
             new Handler(Looper.getMainLooper())
@@ -347,6 +349,10 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
      * 收起 / 恢复的触发见 {@link BottomBarAutoHide}(不能靠 CoordinatorLayout 的嵌套滚动分发)。
      */
     private void setUpAutoHidingBottomBar() {
+        // Android 10 及以下会把内容区改写的 inset 继续传给同级底栏，导致底栏把自身高度
+        // 再加进 padding，布局后重新分发又继续增高，最终遮满首页。让修改只影响子树；
+        // 装在 DrawerLayout 根上，确保侧栏也能收到原始系统 inset。
+        ViewGroupCompat.installCompatInsetsDispatch(baseBind.drawerLayout);
         ViewCompat.setOnApplyWindowInsetsListener(baseBind.contentHost, (v, windowInsets) -> {
             Insets navBars = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars());
             int bottom = Math.max(navBars.bottom, baseBind.navigationView.getHeight());
@@ -541,6 +547,7 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
                 new DrawerEntry(R.id.novel_markers, R.string.core_string_novel_marker),
                 new DrawerEntry(R.id.follow_user, R.string.string_321),
                 new DrawerEntry(R.id.nav_fans, R.string.string_322),
+                new DrawerEntry(R.id.nav_referral_plan, R.string.referral_entry),
         });
 
         // 借号用量:服务端两只配额桶的只读视图,紧贴「我的」之后、「记录与管理」之前 ——
@@ -668,6 +675,9 @@ public class MainActivity extends BaseActivity<ActivityCoverBinding> implements 
         } else if (id == R.id.nav_manage) {
             intent = new Intent(mContext, TemplateActivity.class);
             intent.putExtra(TemplateActivity.EXTRA_FRAGMENT, TemplateRoute.SETTINGS.key);
+        } else if (id == R.id.nav_referral_plan) {
+            intent = new Intent(mContext, TemplateActivity.class);
+            intent.putExtra(TemplateActivity.EXTRA_FRAGMENT, TemplateRoute.REFERRAL_PLAN.key);
         } else if (id == R.id.nav_nana7mi_usage) {
             intent = new Intent(mContext, TemplateActivity.class);
             intent.putExtra(TemplateActivity.EXTRA_FRAGMENT, TemplateRoute.NANA7MI_USAGE.key);

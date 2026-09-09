@@ -1537,6 +1537,8 @@
     <string name="novel_chip_series_content_count">Chapters  %1$s</string>
     <string name="novel_chip_series_char_count">Total length  %1$s</string>
     <string name="setting_default_novel_format">Default novel download format</string>
+    <string name="setting_novel_epub_on_images">Save as EPUB when novel has illustrations</string>
+    <string name="setting_novel_epub_on_images_desc">When default format is TXT, automatically export EPUB if the text contains illustrations</string>
     <string name="setting_default_image_resolution">Default image save resolution</string>
     <string name="option_always_ask">Always ask</string>
     <string name="msg_unknown_format">Unknown format: %s</string>
@@ -2963,8 +2965,8 @@
 
     <!-- PixShaft cloud translation -->
     <string name="cloud_translate_title">PixShaft Cloud Translation</string>
-    <string name="cloud_translate_desc">Translate comments, titles, tags and manga through PixShaft\'s AI translation server — no proxy needed, with a usage allowance. Off = the built-in Google translation. A custom AI translation, when enabled, takes priority.</string>
-    <string name="cloud_translate_usage_section">AI translation limits</string>
+    <string name="cloud_translate_desc">Translate comments, titles, tags and manga through PixShaft\'s cloud translation server — no proxy needed, with a usage allowance. Off = the built-in Google translation. A custom AI translation, when enabled, takes priority.</string>
+    <string name="cloud_translate_usage_section">Cloud translation limits</string>
     <string name="cloud_translate_failed_title">Cloud translation failed</string>
     <string name="cloud_translate_quota_title">Cloud translation limit reached</string>
     <string name="cloud_translate_quota_session">5-hour translation limit reached, back in %1$s</string>
@@ -2972,7 +2974,7 @@
     <string name="cloud_translate_quota_unknown">Translation limit reached, please try again later</string>
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">Current engine: %1$s</string>
-    <string name="cloud_translate_usage_section_engine">AI translation limits · %1$s</string>
+    <string name="cloud_translate_usage_section_engine">Cloud translation limits · %1$s</string>
     <string name="artwork_poster_save">Save artwork poster</string>
     <string name="artwork_poster_generating">Creating a high-resolution artwork poster…</string>
     <string name="artwork_poster_saved">Artwork poster saved to your gallery</string>
@@ -2982,4 +2984,8 @@
     <string name="artwork_poster_encode_failed">Couldn’t encode the poster</string>
     <string name="artwork_poster_unknown_author">Unknown artist</string>
     <string name="artwork_poster_untitled">Untitled</string>
+    <string name="recommend_page_content">Recommendation page content</string>
+    <string name="recommend_page_works_first">Recommended works - Trending tags</string>
+    <string name="recommend_page_tags_first">Trending tags - Recommended works</string>
+    <string name="recommend_page_content_desc">Change the tab order on illustration and novel recommendation pages. Restart the app to apply.</string>
 </resources>

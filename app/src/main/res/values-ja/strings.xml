@@ -1537,6 +1537,8 @@
     <string name="novel_chip_series_content_count">話数  %1$s</string>
     <string name="novel_chip_series_char_count">総文字数  %1$s</string>
     <string name="setting_default_novel_format">既定の小説ダウンロード形式</string>
+    <string name="setting_novel_epub_on_images">挿絵がある小説はEPUBで保存</string>
+    <string name="setting_novel_epub_on_images_desc">既定の形式がTXTの場合、本文に挿絵があれば自動的にEPUBで書き出します</string>
     <string name="setting_default_image_resolution">既定の画像保存解像度</string>
     <string name="option_always_ask">毎回確認</string>
     <string name="msg_unknown_format">不明な形式：%s</string>
@@ -2961,8 +2963,8 @@
 
     <!-- PixShaft クラウド翻訳 -->
     <string name="cloud_translate_title">PixShaft クラウド翻訳</string>
-    <string name="cloud_translate_desc">コメント・タイトル・タグ・マンガの翻訳を PixShaft サーバーの AI 翻訳で行います。プロキシ不要、使用量に上限あり。オフにすると内蔵の Google 翻訳を使用。カスタム AI 翻訳が有効な場合はそちらを優先します。</string>
-    <string name="cloud_translate_usage_section">AI 翻訳の上限</string>
+    <string name="cloud_translate_desc">コメント・タイトル・タグ・マンガの翻訳を PixShaft サーバーのクラウド翻訳で行います。プロキシ不要、使用量に上限あり。オフにすると内蔵の Google 翻訳を使用。カスタム AI 翻訳が有効な場合はそちらを優先します。</string>
+    <string name="cloud_translate_usage_section">クラウド翻訳の上限</string>
     <string name="cloud_translate_failed_title">クラウド翻訳に失敗しました</string>
     <string name="cloud_translate_quota_title">クラウド翻訳の上限に達しました</string>
     <string name="cloud_translate_quota_session">5 時間の翻訳上限に達しました。%1$s後に回復します</string>
@@ -2970,7 +2972,7 @@
     <string name="cloud_translate_quota_unknown">翻訳の上限に達しました。しばらくしてからお試しください</string>
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">現在のエンジン：%1$s</string>
-    <string name="cloud_translate_usage_section_engine">AI 翻訳の上限 · %1$s</string>
+    <string name="cloud_translate_usage_section_engine">クラウド翻訳の上限 · %1$s</string>
     <string name="artwork_poster_save">作品ポスターを保存</string>
     <string name="artwork_poster_generating">高画質の作品ポスターを作成中…</string>
     <string name="artwork_poster_saved">作品ポスターをギャラリーに保存しました</string>
@@ -2980,4 +2982,8 @@
     <string name="artwork_poster_encode_failed">ポスターをエンコードできません</string>
     <string name="artwork_poster_unknown_author">不明な作者</string>
     <string name="artwork_poster_untitled">無題</string>
+    <string name="recommend_page_content">おすすめページの表示内容</string>
+    <string name="recommend_page_works_first">おすすめ作品 - 人気のタグ</string>
+    <string name="recommend_page_tags_first">人気のタグ - おすすめ作品</string>
+    <string name="recommend_page_content_desc">イラストと小説のおすすめページのタブ順を変更します。アプリの再起動後に反映されます。</string>
 </resources>

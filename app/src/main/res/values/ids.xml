@@ -98,4 +98,6 @@
     <item type="id" name="nav_nana7mi_usage" />
     <!-- 评论 cell 内嵌译文块正在跑的展开/收起动画；重绑/回收时据此取消。 -->
     <item type="id" name="comment_translation_animator" />
+    <item name="nav_referral_plan" type="id" />
+    <item name="referral_scroll" type="id" />
 </resources>

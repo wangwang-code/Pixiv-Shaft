@@ -95,6 +95,7 @@ object SettingsCatalog {
         add(Entry(APPEARANCE, "app_language_rela", R.string.language, keywords = "语言 简体 繁体 英文 日文 韩文 中文 language english"))
         add(Entry(APPEARANCE, "navigation_init_position_rela", R.string.string_426, keywords = "启动页 默认页 初始页 首页 导航 start page"))
         add(Entry(APPEARANCE, "bottom_bar_order_rela", R.string.string_342, keywords = "底部导航 tab 顺序 排序 页签 bottom bar"))
+        add(Entry(APPEARANCE, "recommend_page_order_rela", R.string.recommend_page_content, R.string.recommend_page_content_desc, keywords = "推荐作品 热门标签 推荐页 顺序 排序 插画 小说 recommend hot tags tab order"))
         add(Entry(APPEARANCE, "main_view_r18_rela", R.string.string_359, keywords = "r18 r页 主页 首页 涩图"))
         // 别名按整串子串匹配（同上），「平板双栏」「左右分屏」这类连写说法各铺一遍
         add(Entry(APPEARANCE, "tablet_split_screen_rela", R.string.tablet_split_screen, R.string.tablet_split_screen_desc, keywords = "平板 双栏 平板双栏 分栏 分屏 左右分屏 左右分离 大屏 宽屏 折叠屏 两栏 并排 tablet split screen two pane dual pane large screen foldable embedding"))
@@ -169,6 +170,7 @@ object SettingsCatalog {
         add(Entry(DOWNLOAD, "default_image_resolution_rela", R.string.setting_default_image_resolution, keywords = "清晰度 分辨率 画质 原图 保存 resolution"))
         add(Entry(DOWNLOAD, "write_exif_tags_rela", R.string.setting_write_exif_tags_title, R.string.setting_write_exif_tags_desc, keywords = "标签 关键词 exif xmp 元数据 相册 keywords metadata tags dc:subject"))
         add(Entry(DOWNLOAD, "default_novel_format_rela", R.string.setting_default_novel_format, keywords = "小说 格式 txt epub pdf markdown 导出 export"))
+        add(Entry(DOWNLOAD, "novel_epub_on_images_rela", R.string.setting_novel_epub_on_images, R.string.setting_novel_epub_on_images_desc, keywords = "小说 插图 图片 epub txt 自动 格式 illustration image"))
         add(Entry(DOWNLOAD, "novel_header_rela", R.string.novel_header_settings_title, R.string.novel_header_settings_entry_desc, keywords = "信息头 元信息 头部 字段 作者信息 txt"))
         add(Entry(DOWNLOAD, "download_limit_type_rela", R.string.string_452, keywords = "限制 wifi 流量 蜂窝 移动网络 limit"))
         add(Entry(DOWNLOAD, "max_concurrent_downloads_rela", R.string.setting_max_concurrent_downloads, keywords = "并发 同时 多任务 线程 速度 concurrent"))

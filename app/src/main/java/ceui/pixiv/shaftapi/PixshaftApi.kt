@@ -299,9 +299,17 @@ data class AppConfigResponse(
 data class CloudTranslateEngine(
     val vendor: String? = null,
     val model: String? = null,
+    /** 服务端配置的后备引擎；旧服务端不返回，实际响应只返回本次使用的引擎。 */
+    val fallback: CloudTranslateEngine? = null,
 ) {
     /** 「OpenAI · gpt-5.4-mini」；两样都缺就 null，调用方别画一个空标签。 */
     val display: String?
+        get() {
+            val primary = name ?: return fallback?.name
+            return fallback?.name?.let { "$primary → $it" } ?: primary
+        }
+
+    private val name: String?
         get() = listOfNotNull(vendor?.takeIf { it.isNotBlank() }, model?.takeIf { it.isNotBlank() })
             .takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
@@ -772,6 +780,7 @@ data class TranslateResponse(
     val uid: Long? = null,
     /** 与请求 `texts` 等长、同序；服务端已经校验过长度，对不上会直接回 502。 */
     val translations: List<String>? = null,
+    val engine: CloudTranslateEngine? = null,
     val serverTime: Long? = null,
     val plan: Nana7miPlan? = null,
     /** 扣完这一笔之后的读数，和 [Nana7miQuotaWindow] 同形，只是单位是字符。 */
@@ -793,6 +802,7 @@ sealed class TranslateResult {
         val quotas: List<Nana7miQuotaWindow>,
         val serverTime: Long,
         val plan: Nana7miPlan? = null,
+        val engine: CloudTranslateEngine? = null,
     ) : TranslateResult()
 
     /** 429：既可能是两只额度桶（[Nana7miResult.RateLimited.isQuota]），也可能是每分钟限流。 */
@@ -831,6 +841,7 @@ suspend fun PixshaftApi.translateTexts(uid: Long, texts: List<String>, lang: Str
                     body.quotas,
                     body.serverTime ?: System.currentTimeMillis(),
                     body.plan,
+                    body.engine,
                 )
             }
             response.code() == 429 -> TranslateResult.RateLimited(parseRateLimited(response))

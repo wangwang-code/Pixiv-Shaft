@@ -22,6 +22,7 @@ enum class TemplateRoute(@JvmField val key: String) {
     HISTORY("浏览记录"),
     WATCH_LATER("稍后再看"),
     WEB_LINK("网页链接"),
+    REFERRAL_PLAN("App推介计划"),
     NANA7MI_USAGE("借号用量"),
     SETTINGS("设置"),
     SETTINGS_CATEGORY("设置分类"),

@@ -1537,6 +1537,8 @@
     <string name="novel_chip_series_content_count">Bölüm sayısı  %1$s</string>
     <string name="novel_chip_series_char_count">Toplam karakter  %1$s</string>
     <string name="setting_default_novel_format">Varsayılan roman indirme biçimi</string>
+    <string name="setting_novel_epub_on_images">Roman içinde çizim varsa EPUB olarak kaydet</string>
+    <string name="setting_novel_epub_on_images_desc">Varsayılan biçim TXT olduğunda, metinde çizim algılanırsa otomatik olarak EPUB olarak dışa aktar</string>
     <string name="setting_default_image_resolution">Varsayılan görsel kayıt çözünürlüğü</string>
     <string name="option_always_ask">Her seferinde sor</string>
     <string name="msg_unknown_format">Bilinmeyen biçim: %s</string>
@@ -2964,8 +2966,8 @@
 
     <!-- PixShaft bulut çevirisi -->
     <string name="cloud_translate_title">PixShaft Bulut Çevirisi</string>
-    <string name="cloud_translate_desc">Yorumlar, başlıklar, etiketler ve mangalar PixShaft sunucusundaki yapay zekâ ile çevrilir; proxy gerekmez, kullanım kotası vardır. Kapalıyken yerleşik Google Çeviri kullanılır. Etkin bir özel yapay zekâ çevirisi önceliklidir.</string>
-    <string name="cloud_translate_usage_section">Yapay zekâ çeviri kotası</string>
+    <string name="cloud_translate_desc">Yorumlar, başlıklar, etiketler ve mangalar PixShaft sunucusunda çevrilir; proxy gerekmez, kullanım kotası vardır. Kapalıyken yerleşik Google Çeviri kullanılır. Etkin bir özel yapay zekâ çevirisi önceliklidir.</string>
+    <string name="cloud_translate_usage_section">Bulut çeviri kotası</string>
     <string name="cloud_translate_failed_title">Bulut çevirisi başarısız</string>
     <string name="cloud_translate_quota_title">Bulut çevirisi kotası doldu</string>
     <string name="cloud_translate_quota_session">5 saatlik çeviri kotası doldu, %1$s sonra yenilenir</string>
@@ -2973,7 +2975,7 @@
     <string name="cloud_translate_quota_unknown">Çeviri kotası doldu, lütfen daha sonra tekrar deneyin</string>
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">Geçerli motor: %1$s</string>
-    <string name="cloud_translate_usage_section_engine">Yapay zekâ çeviri kotası · %1$s</string>
+    <string name="cloud_translate_usage_section_engine">Bulut çeviri kotası · %1$s</string>
     <string name="artwork_poster_save">Çalışma posterini kaydet</string>
     <string name="artwork_poster_generating">Yüksek çözünürlüklü poster oluşturuluyor…</string>
     <string name="artwork_poster_saved">Çalışma posteri galeriye kaydedildi</string>
@@ -2983,4 +2985,8 @@
     <string name="artwork_poster_encode_failed">Poster kodlanamadı</string>
     <string name="artwork_poster_unknown_author">Bilinmeyen sanatçı</string>
     <string name="artwork_poster_untitled">Başlıksız</string>
+    <string name="recommend_page_content">Öneri sayfası içeriği</string>
+    <string name="recommend_page_works_first">Önerilen eserler - Popüler etiketler</string>
+    <string name="recommend_page_tags_first">Popüler etiketler - Önerilen eserler</string>
+    <string name="recommend_page_content_desc">İllüstrasyon ve roman öneri sayfalarındaki sekme sırasını değiştirir. Uygulamak için uygulamayı yeniden başlatın.</string>
 </resources>

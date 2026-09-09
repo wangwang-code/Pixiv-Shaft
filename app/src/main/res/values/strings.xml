@@ -1684,6 +1684,8 @@
     <string name="novel_chip_series_char_count">总字数  %1$s</string>
 
     <string name="setting_default_novel_format">默认小说下载格式</string>
+    <string name="setting_novel_epub_on_images">小说有插图时存EPUB</string>
+    <string name="setting_novel_epub_on_images_desc">默认导出格式为 TXT 时，检测到正文插图自动改用 EPUB 导出</string>
     <string name="setting_default_image_resolution">默认图片保存清晰度</string>
     <string name="option_always_ask">每次询问</string>
     <string name="msg_unknown_format">未知格式: %s</string>
@@ -3224,8 +3226,8 @@
 
     <!-- PixShaft 云翻译（服务端代理的 AI 翻译，pixshaft-api src/translate.js） -->
     <string name="cloud_translate_title">PixShaft 云翻译</string>
-    <string name="cloud_translate_desc">评论、标题、标签与漫画翻译走 PixShaft 服务器的 AI 翻译，无需代理，有用量额度；关闭则使用内置 Google 翻译。已启用自定义 AI 翻译时优先自定义。</string>
-    <string name="cloud_translate_usage_section">AI 翻译额度</string>
+    <string name="cloud_translate_desc">评论、标题、标签与漫画翻译走 PixShaft 服务器的云翻译，无需代理，有用量额度；关闭则使用内置 Google 翻译。已启用自定义 AI 翻译时优先自定义。</string>
+    <string name="cloud_translate_usage_section">云翻译额度</string>
     <string name="cloud_translate_failed_title">云翻译失败</string>
     <string name="cloud_translate_quota_title">云翻译额度已用完</string>
     <string name="cloud_translate_quota_session">五小时翻译额度已用完，%1$s后恢复</string>
@@ -3233,7 +3235,7 @@
     <string name="cloud_translate_quota_unknown">翻译额度已用完，请稍后再试</string>
     <string name="cloud_translate_usage_lt1">&lt;1%</string>
     <string name="cloud_translate_engine_line">当前引擎：%1$s</string>
-    <string name="cloud_translate_usage_section_engine">AI 翻译额度 · %1$s</string>
+    <string name="cloud_translate_usage_section_engine">云翻译额度 · %1$s</string>
     <string name="artwork_poster_save">保存作品海报</string>
     <string name="artwork_poster_generating">正在生成高清作品海报…</string>
     <string name="artwork_poster_saved">作品海报已保存到相册</string>
@@ -3243,4 +3245,8 @@
     <string name="artwork_poster_encode_failed">海报编码失败</string>
     <string name="artwork_poster_unknown_author">未知作者</string>
     <string name="artwork_poster_untitled">无题</string>
+    <string name="recommend_page_content">推荐页面展示内容</string>
+    <string name="recommend_page_works_first">推荐作品-热门标签</string>
+    <string name="recommend_page_tags_first">热门标签-推荐作品</string>
+    <string name="recommend_page_content_desc">调整插画和小说推荐页的页签顺序，重启后生效</string>
 </resources>

@@ -86,8 +86,8 @@ android {
         applicationId "ceui.pixiv"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 42500
-        versionName "4.9.2"
+        versionCode 42600
+        versionName "4.9.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             // Production remains arm64-only. CI can request x86_64 so instrumented tests run on
@@ -219,6 +219,9 @@ android {
         viewBinding = true
         buildConfig = true // 启用 BuildConfig
     }
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
     packagingOptions {
         jniLibs {
             useLegacyPackaging = true
@@ -260,6 +263,7 @@ dependencies {
     // 版本分别对齐主依赖的 okhttp 4.12.0 / 传递解析出的 coroutines 1.10.2
     testImplementation libs.mockWebServer
     testImplementation libs.coroutinesTest
+    testImplementation libs.androidxLifecycleRuntimeTesting
     testImplementation libs.androidxArchCoreTesting
     testImplementation libs.robolectric
     // JVM 单测里 android.jar 的 org.json 是 Stub!,真实现放前面顶掉(AiTranslator 测试用)
@@ -279,6 +283,8 @@ dependencies {
     implementation libs.androidxRecyclerView
     implementation libs.androidxSwipeRefreshLayout
     implementation libs.material
+    implementation libs.androidxLifecycleRuntime
+    implementation libs.coroutinesAndroid
     implementation libs.androidxLifecycleLiveData
     implementation libs.androidxLifecycleViewModel
     implementation libs.androidxCore
@@ -351,6 +357,7 @@ dependencies {
     // First-party token storage + OkHttp Bearer/401 machinery. This module has
     // no dependency on :app or Pixiv business models.
     implementation project(path: ':safe')
+    implementation project(path: ':communication')
     implementation libs.mmkv
     // 部分华为等 OEM 上 libmmkv.so 偶发 dlopen "not found"，ReLinker 兜底从 APK 抠 .so 按绝对路径加载。
     implementation libs.relinker
