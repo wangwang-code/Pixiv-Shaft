@@ -2871,6 +2871,8 @@
     <!-- Auto snapshot (experimental) -->
     <string name="setting_auto_snapshot_on_bookmark">Create offline snapshot on bookmark</string>
     <string name="setting_auto_snapshot_on_bookmark_desc">Quietly create a lightweight offline snapshot after you bookmark a work (experimental)</string>
+    <string name="setting_auto_snapshot_on_illust_manga">Auto-create snapshots for illustrations/manga</string>
+    <string name="setting_auto_snapshot_on_illust_manga_desc">Quietly create snapshots for illustrations/manga you revisit or dwell on for a long time (experimental)</string>
     <string name="snapshot_auto_badge">Auto</string>
     <string name="snapshot_promote">Convert to regular snapshot</string>
     <string name="snapshot_promote_title">Convert to Regular Snapshot</string>

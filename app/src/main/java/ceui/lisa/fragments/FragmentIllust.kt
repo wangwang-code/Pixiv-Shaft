@@ -74,6 +74,7 @@ import ceui.pixiv.utils.combineLatest
 import ceui.pixiv.utils.toTagsBeans
 import ceui.loxia.User
 import ceui.pixiv.ui.flag.FlagDescFragment
+import ceui.pixiv.snapshot.AutoSnapshotEngine
 import ceui.pixiv.snapshot.AutoSnapshotRepository
 import ceui.pixiv.snapshot.SnapshotManagerFragment
 import ceui.pixiv.snapshot.SnapshotRepository
@@ -103,6 +104,7 @@ import timber.log.Timber
 import ceui.pixiv.ui.navigation.TemplateRoute
 
 class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
+    private var autoSnapshotVisit: AutoSnapshotEngine.ArtworkVisit? = null
 
     private val safeArgs by lazy { IllustArgs(requireArguments()) }
 
@@ -1037,9 +1039,21 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
     override fun onResume() {
         super.onResume()
         if (!isSnapshotMode) {
+            autoSnapshotVisit = AutoSnapshotEngine.onArtworkPageVisible(
+                illustId = safeArgs.illustId.toLong(),
+                type = ObjectPool.get<Illust>(safeArgs.illustId.toLong()).value?.type,
+            )
             // 从二级大图页返回后，把进程内已缓存 ORIGINAL 的页直接回填，不重绑列表。
             (baseBind.recyclerView.adapter as? IllustAdapter)?.showCachedOriginalOverlays()
         }
+    }
+
+    override fun onPause() {
+        if (!isSnapshotMode) {
+            AutoSnapshotEngine.onArtworkPageHidden(autoSnapshotVisit)
+        }
+        autoSnapshotVisit = null
+        super.onPause()
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
