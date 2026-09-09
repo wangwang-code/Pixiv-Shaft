@@ -40,6 +40,8 @@ object AutoSnapshotBehaviorStore {
 
     /** 整个行为库最多保留的作品记录数，超出后删除最久未活跃的作品。 */
     internal const val MAX_RECORDS = 1000
+    private const val PRUNE_INTERVAL_MS = 60L * 60 * 1000
+    private var lastPruneAt: Long? = null
 
     const val SIGNAL_DWELL = "dwell"
     const val SIGNAL_REVISIT = "revisit"
@@ -63,7 +65,7 @@ object AutoSnapshotBehaviorStore {
         val old = load(s, key, illustId)
         val base = old ?: AutoSnapshotBehaviorRecord(illustId = illustId, type = type)
         val merged = (if (type != null) base.copy(type = type) else base).withVisit(now)
-        save(s, key, merged)
+        save(s, key, merged, now)
     }
 
     /** 记录一次已完成的停留（onPause / 页面不可见时调用，dwellMs 为本次停留毫秒数）。 */
@@ -75,7 +77,7 @@ object AutoSnapshotBehaviorStore {
         val old = load(s, key, illustId)
         val merged = (old ?: AutoSnapshotBehaviorRecord(illustId = illustId))
             .withDwell(dwellMs = dwellMs, now = now)
-        save(s, key, merged)
+        save(s, key, merged, now)
     }
 
     /** 标记该作品已经生成过一次自动快照，供观察/节流/淘汰后续使用。 */
@@ -91,7 +93,7 @@ object AutoSnapshotBehaviorStore {
         val old = load(s, key, illustId)
         val merged = (old ?: AutoSnapshotBehaviorRecord(illustId = illustId))
             .withAutoSnapshot(now = now, signal = signal)
-        save(s, key, merged)
+        save(s, key, merged, now)
     }
 
     /** 读取某个作品的记录；不存在或损坏时返回 null，不抛异常。 */
@@ -111,7 +113,7 @@ object AutoSnapshotBehaviorStore {
     fun prune(now: Long = System.currentTimeMillis(), maxRecords: Int = MAX_RECORDS) {
         val s = store ?: return
         if (!ensureSchema(s)) return
-        val keys = runCatching { s.allKeys().orEmpty() }.getOrDefault(emptyArray<String>())
+        val keys = runCatching { s.allKeys().orEmpty() }.getOrElse { return }
         val valid = mutableListOf<Pair<String, AutoSnapshotBehaviorRecord>>()
         for (key in keys) {
             if (!key.startsWith(KEY_PREFIX)) continue
@@ -128,9 +130,11 @@ object AutoSnapshotBehaviorStore {
                 valid += key to record
             }
         }
-        if (valid.size <= maxRecords) return
+        lastPruneAt = now
+        val limit = maxRecords.coerceAtLeast(0)
+        if (valid.size <= limit) return
         valid.sortByDescending { it.second.newestActivityAt() }
-        for (i in maxRecords until valid.size) {
+        for (i in limit until valid.size) {
             runCatching { s.removeValueForKey(valid[i].first) }
         }
     }
@@ -180,8 +184,18 @@ object AutoSnapshotBehaviorStore {
         return record
     }
 
-    private fun save(s: MMKV, key: String, record: AutoSnapshotBehaviorRecord) {
-        runCatching { s.encode(key, encodeRecord(record)) }
+    private fun save(s: MMKV, key: String, record: AutoSnapshotBehaviorRecord, now: Long) {
+        runCatching {
+            if (!s.encode(key, encodeRecord(record))) return@runCatching
+            // 配额属于行为库，不能依赖联网或成功生成快照。count() 不解析全部 JSON。
+            // 超额时留出一批余量，避免达到上限后每翻一页就整库扫描。
+            val previousPrune = lastPruneAt
+            if (s.count() > MAX_RECORDS + 1L) {
+                prune(now, maxRecords = MAX_RECORDS - 100)
+            } else if (previousPrune == null || now < previousPrune || now - previousPrune >= PRUNE_INTERVAL_MS) {
+                prune(now)
+            }
+        }
             .onFailure { Timber.tag(TAG).w(it, "write behavior record failed key=%s", key) }
     }
 
@@ -199,7 +213,16 @@ object AutoSnapshotBehaviorStore {
             if (record.schemaVersion != SCHEMA_VERSION) return null
             if (record.illustId != illustId) return null
             if (record.illustId <= 0L) return null
-            record
+            // Gson 的 Unsafe 分配会绕过 Kotlin 默认值/非空类型，缺字段、null 数组或
+            // null 元素都可能解析成功。只向上层交付已经恢复非空不变式的有界记录。
+            val visits: List<Long?>? = record.recentVisits
+            val dwells: List<AutoSnapshotDwellSample?>? = record.recentDwells
+            record.copy(
+                recentVisits = visits.orEmpty().filterNotNull().take(MAX_RECENT_VISITS),
+                recentDwells = dwells.orEmpty().filterNotNull()
+                    .filter { it.ms > 0L }
+                    .take(MAX_RECENT_DWELLS),
+            )
         } catch (e: Exception) {
             null
         }

@@ -106,6 +106,7 @@ import ceui.pixiv.ui.navigation.TemplateRoute
  *([refreshEnabled] = false)。
  */
 class ArtworkV3Fragment : IllustFeedFragment(R.layout.fragment_artwork_v3) {
+    private var autoSnapshotVisit: AutoSnapshotEngine.ArtworkVisit? = null
 
     internal val snapshotId: String? get() = arguments?.getString(SnapshotManagerFragment.ARG_SNAPSHOT_ID)
 
@@ -413,7 +414,7 @@ class ArtworkV3Fragment : IllustFeedFragment(R.layout.fragment_artwork_v3) {
             applySnapshotBookmarkState()
             return
         }
-        AutoSnapshotEngine.onArtworkPageVisible(
+        autoSnapshotVisit = AutoSnapshotEngine.onArtworkPageVisible(
             illustId = illustId,
             type = ObjectPool.get<Illust>(illustId).value?.type,
         )
@@ -433,9 +434,10 @@ class ArtworkV3Fragment : IllustFeedFragment(R.layout.fragment_artwork_v3) {
 
     override fun onPause() {
         if (!isSnapshotMode) {
-            AutoSnapshotEngine.onArtworkPageHidden(illustId)
+            AutoSnapshotEngine.onArtworkPageHidden(autoSnapshotVisit)
             artworkViewModel.pauseDownloadFab()
         }
+        autoSnapshotVisit = null
         super.onPause()
     }
 

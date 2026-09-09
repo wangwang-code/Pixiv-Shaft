@@ -100,6 +100,7 @@ import timber.log.Timber
 import ceui.pixiv.ui.navigation.TemplateRoute
 
 class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
+    private var autoSnapshotVisit: AutoSnapshotEngine.ArtworkVisit? = null
 
     private val safeArgs by lazy { IllustArgs(requireArguments()) }
 
@@ -1018,7 +1019,7 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
     override fun onResume() {
         super.onResume()
         if (!isSnapshotMode) {
-            AutoSnapshotEngine.onArtworkPageVisible(
+            autoSnapshotVisit = AutoSnapshotEngine.onArtworkPageVisible(
                 illustId = safeArgs.illustId.toLong(),
                 type = ObjectPool.get<Illust>(safeArgs.illustId.toLong()).value?.type,
             )
@@ -1030,8 +1031,9 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
 
     override fun onPause() {
         if (!isSnapshotMode) {
-            AutoSnapshotEngine.onArtworkPageHidden(safeArgs.illustId.toLong())
+            AutoSnapshotEngine.onArtworkPageHidden(autoSnapshotVisit)
         }
+        autoSnapshotVisit = null
         super.onPause()
     }
 

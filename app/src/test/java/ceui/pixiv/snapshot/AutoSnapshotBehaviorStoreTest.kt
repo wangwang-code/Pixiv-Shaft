@@ -173,5 +173,21 @@ class AutoSnapshotBehaviorStoreTest {
         val decoded = checkNotNull(AutoSnapshotBehaviorStore.decodeRecord(9L, json))
 
         assertEquals(listOf(1L, 2L, 3L), decoded.recentVisits)
+        assertEquals(0L, decoded.dwellAccumMs)
+        assertEquals(1, decoded.withDwell(60_000L, 4L).recentDwells.size)
+    }
+
+    @Test
+    fun `decoded null collections and elements cannot crash later consumers`() {
+        val inputs = listOf(
+            """{"illustId":9,"schemaVersion":1} """,
+            """{"illustId":9,"schemaVersion":1,"recentVisits":null,"recentDwells":null}""",
+            """{"illustId":9,"schemaVersion":1,"recentVisits":[null,1],"recentDwells":[null,{"at":2,"ms":3}]}""",
+        )
+        for (json in inputs) {
+            val decoded = checkNotNull(AutoSnapshotBehaviorStore.decodeRecord(9L, json))
+            decoded.withVisit(10L).withDwell(60_000L, 11L).trimmed(12L).newestActivityAt()
+            decoded.dwellAccumMs
+        }
     }
 }
