@@ -39,13 +39,12 @@ object AutoSnapshotEngine {
             CoroutineExceptionHandler { _, e -> Timber.tag(TAG).e(e, "auto snapshot scope crashed") }
     )
 
-    private val inFlight = java.util.Collections.synchronizedSet(mutableSetOf<Long>())
+    private val pending = AutoSnapshotPendingRequests(capacity = 32)
 
     // 记录按页面回调顺序落盘；不能让主线程等待 MMKV 初始化、JSON 解析或 prune 的锁。
     private val behaviorDispatcher = Dispatchers.IO.limitedParallelism(1)
     // 翻页可以不断触发新作品，IO dispatcher 本身不会限制挂起中的下载数。
     private val generationPermit = Semaphore(1)
-    private const val MAX_PENDING_SNAPSHOTS = 32
 
     /** 由各页面持有，避免多窗口打开同一作品时互相覆盖计时。只消费一次，不持有 View。 */
     class ArtworkVisit internal constructor(val illustId: Long, private val startedAt: Long) {
@@ -110,17 +109,17 @@ object AutoSnapshotEngine {
     /** 统一异步生成入口：去重、网络检查、已有快照检查、静默生成、配额与记录。 */
     private fun launchAutoSnapshot(illust: Illust, signal: String?) {
         val id = illust.id
-        if (id <= 0L) return
-        synchronized(inFlight) {
-            if (inFlight.size >= MAX_PENDING_SNAPSHOTS || !inFlight.add(id)) return
-        }
+        val request = pending.add(illust, signal) ?: return
 
         scope.launch {
             try {
                 generationPermit.withPermit {
                     // 等待期间可能关闭了开关；排队中的任务必须重新确认。
-                    if (signal != null && !Shaft.sSettings.isAutoSnapshotOnIllustManga) return@withPermit
-                    if (signal == null && !Shaft.sSettings.isAutoSnapshotOnBookmark) return@withPermit
+                    val ready = pending.ready(
+                        request,
+                        bookmarkEnabled = Shaft.sSettings.isAutoSnapshotOnBookmark,
+                        behaviorEnabled = Shaft.sSettings.isAutoSnapshotOnIllustManga,
+                    ) ?: return@withPermit
                     val appContext = Shaft.getContext()
                     // 无网/弱网不硬拉，静默跳过。
                     if (appContext.appServices().networkStateManager.networkState.value?.isOnline != true) return@withPermit
@@ -130,19 +129,19 @@ object AutoSnapshotEngine {
                     val autoExists = AutoSnapshotRepository.listAuto(appContext).any { it.manifest.illustId == id }
                     if (autoExists) return@withPermit
 
-                    SnapshotGenerator.generateAuto(appContext, illust)
+                    SnapshotGenerator.generateAuto(appContext, ready.illust)
                     AutoSnapshotRepository.enforceAutoQuota(appContext)
-                    if (signal != null && Shaft.sSettings.isAutoSnapshotOnIllustManga) {
-                        AutoSnapshotBehaviorStore.markAutoSnapshotGenerated(id, signal)
+                    if (ready.behaviorSignal != null && Shaft.sSettings.isAutoSnapshotOnIllustManga) {
+                        AutoSnapshotBehaviorStore.markAutoSnapshotGenerated(id, ready.behaviorSignal)
                     }
-                    Timber.tag(TAG).i("auto snapshot generated, illustId=%d, signal=%s", id, signal ?: "bookmark")
+                    Timber.tag(TAG).i("auto snapshot generated, illustId=%d, signal=%s", id, ready.behaviorSignal ?: "bookmark")
                 }
             } catch (ce: CancellationException) {
                 throw ce
             } catch (e: Exception) {
                 Timber.tag(TAG).w(e, "auto snapshot failed, illustId=%d", id)
             } finally {
-                inFlight.remove(id)
+                pending.finish(request)
             }
         }
     }
