@@ -38,6 +38,7 @@ import ceui.pixiv.ui.history.BrowseHistoryBackup
 import timber.log.Timber
 import ceui.pixiv.witstudio.dialog.WitDialog
 import ceui.pixiv.witstudio.dialog.WitDialogAction
+import ceui.pixiv.witstudio.popup.WitToolbarOverflow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -148,6 +149,7 @@ class FragmentHistoryTabs : Fragment(R.layout.viewpager_with_tablayout) {
      */
     private fun setupSearchMenu() {
         binding.toolbar.inflateMenu(R.menu.history_v3)
+        WitToolbarOverflow.attach(binding.toolbar)
         binding.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_delete -> { showClearAllDialog(); true }
