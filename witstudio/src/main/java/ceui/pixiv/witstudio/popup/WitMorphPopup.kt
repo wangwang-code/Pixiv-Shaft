@@ -13,18 +13,19 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.ListView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.ColorInt
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import ceui.pixiv.witstudio.R
 import ceui.pixiv.witstudio.theme.V3Palette
@@ -78,7 +79,8 @@ public class WitMorphPopup private constructor(private val context: Context) {
         public fun riseAndFall(time: Float, peak: Float = 0.098f, sharpness: Float = 3.3f): Float {
             if (time <= 0f) return 0f
             val x = time / peak
-            return (x.toDouble().pow(sharpness.toDouble()) * exp((sharpness * (1f - x)).toDouble())).toFloat()
+            return (x.toDouble()
+                .pow(sharpness.toDouble()) * exp((sharpness * (1f - x)).toDouble())).toFloat()
         }
 
         /**
@@ -149,7 +151,8 @@ public class WitMorphPopup private constructor(private val context: Context) {
             onItemSelected: ((WitMenuItem) -> Unit)? = null,
         ): WitMorphPopup? {
             val popup = WitMorphPopup(context)
-            val success = popup.display(anchor, items, backgroundColor, contentColor, onItemSelected)
+            val success =
+                popup.display(anchor, items, backgroundColor, contentColor, onItemSelected)
             return if (success) popup else null
         }
     }
@@ -186,6 +189,7 @@ public class WitMorphPopup private constructor(private val context: Context) {
                     val fraction = anim.animatedValue as Float
                     val time = fraction * (DISMISS_DURATION_MS / 1000f)
                     platter.updateDismissProgress(fraction, time)
+                    if (time >= 0.30f) anchor?.visibility = View.VISIBLE
                 }
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
@@ -233,8 +237,9 @@ public class WitMorphPopup private constructor(private val context: Context) {
 
         // 1. 获取宿主真实主题色，避开 Toolbar 局部 ThemeOverlay 对 colorPrimary 的灰色覆盖
         val palette = V3Palette.from(activity)
-        val isDark = (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-                Configuration.UI_MODE_NIGHT_YES
+        val isDark =
+            (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                    Configuration.UI_MODE_NIGHT_YES
         val primaryColor = palette.primary
 
         // 主题色派生色：深色模式 28% 主题色 + 72% 深色底；浅色模式 14% 主题色 + 86% 白底
@@ -258,7 +263,16 @@ public class WitMorphPopup private constructor(private val context: Context) {
             null
         }
 
-        // 3. 计算几何位置（DecorView 根坐标系）
+        // 3. 在挂载覆盖层前抓取当前页面，作为液体玻璃的背景采样。
+        val backdropBitmap = try {
+            Bitmap.createBitmap(decorView.width, decorView.height, Bitmap.Config.ARGB_8888).also { bitmap ->
+                decorView.draw(Canvas(bitmap))
+            }
+        } catch (_: Throwable) {
+            null
+        }?.let(::blurBackdrop)
+
+        // 4. 计算几何位置（DecorView 根坐标系）
         val decorLoc = IntArray(2)
         decorView.getLocationInWindow(decorLoc)
         val loc = IntArray(2)
@@ -303,12 +317,15 @@ public class WitMorphPopup private constructor(private val context: Context) {
             View.MeasureSpec.makeMeasureSpec(popupW.toInt(), View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(maxHeightPx, View.MeasureSpec.AT_MOST)
         )
-        val popupH = list.measuredHeight.coerceAtMost(maxHeightPx).coerceAtLeast(anchorH.toInt()).toFloat()
+        val popupH =
+            list.measuredHeight.coerceAtMost(maxHeightPx).coerceAtLeast(anchorH.toInt()).toFloat()
 
         // 目标几何：右边缘严格对齐原按钮右边缘，上边缘上偏 8dp（ANCHOR_OVERLAP_DP）
-        val targetRightVal = anchorRight.coerceIn(popupW + edgeProtectionPx, screenW - edgeProtectionPx)
+        val targetRightVal =
+            anchorRight.coerceIn(popupW + edgeProtectionPx, screenW - edgeProtectionPx)
         val targetLeftVal = targetRightVal - popupW
-        val targetTopVal = (anchorTop - overlapPx).coerceIn(edgeProtectionPx, screenH - popupH - edgeProtectionPx)
+        val targetTopVal =
+            (anchorTop - overlapPx).coerceIn(edgeProtectionPx, screenH - popupH - edgeProtectionPx)
         val targetBottomVal = targetTopVal + popupH
 
         targetRect.set(targetLeftVal, targetTopVal, targetRightVal, targetBottomVal)
@@ -340,6 +357,7 @@ public class WitMorphPopup private constructor(private val context: Context) {
             anchorRect = anchorRect,
             targetRect = targetRect,
             anchorBitmap = anchorBitmap,
+            backdropBitmap = backdropBitmap,
             primaryColor = primaryColor,
             cardColor = cardDerivedColor,
             contentView = list
@@ -405,6 +423,7 @@ public class WitMorphPopup private constructor(private val context: Context) {
         private val anchorRect: RectF,
         private val targetRect: RectF,
         private val anchorBitmap: Bitmap?,
+        private val backdropBitmap: Bitmap?,
         @param:ColorInt private val primaryColor: Int,
         @param:ColorInt private val cardColor: Int,
         private val contentView: View,
@@ -419,7 +438,7 @@ public class WitMorphPopup private constructor(private val context: Context) {
         )
 
         private var snapAlpha: Int = 255
-
+        private var glassProgress: Float = 0f
         // 当前卡片轮廓
         private val liquidPath = Path()
         private val currentPlatterRect = RectF()
@@ -431,9 +450,20 @@ public class WitMorphPopup private constructor(private val context: Context) {
         }
         private val snapPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
+        private val backdropView = ImageView(context).apply {
+            scaleType = ImageView.ScaleType.FIT_XY
+            setImageBitmap(backdropBitmap)
+            alpha = 0.82f
+        }
+
         init {
             setWillNotDraw(false)
             setOnClickListener { /* 拦截点击 */ }
+
+            addView(backdropView, LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ))
 
             val listParams = LayoutParams(
                 targetRect.width().toInt(),
@@ -456,21 +486,38 @@ public class WitMorphPopup private constructor(private val context: Context) {
             val prog = if (time <= 0f) 0f else openSpring(time)
 
             // 1. 尺度缩放：从按下时的圆形尺寸平滑扩展到卡片长宽
-            val curW = if (time <= 0f) startSize else max(startSize, lerp(startSize, targetRect.width(), prog))
-            val curH = if (time <= 0f) startSize else max(startSize, lerp(startSize, targetRect.height(), prog))
+            val curW = if (time <= 0f) startSize else max(
+                startSize,
+                lerp(startSize, targetRect.width(), prog)
+            )
+            val curH = if (time <= 0f) startSize else max(
+                startSize,
+                lerp(startSize, targetRect.height(), prog)
+            )
 
             // 2. 垂直水滴涌动起伏（第 0 帧严格归零）
             val dip = if (time <= 0f) 0f else {
                 val toCardY = targetRect.centerY() - anchorRect.centerY()
                 val distanceY = abs(toCardY)
                 val dipScale = WitDisplay.dp2px(context, 23).toFloat()
-                sign(toCardY) * (min(1.0f, distanceY / WitDisplay.dp2px(context, 30)) * dipScale + 0.124f * distanceY) *
+                sign(toCardY) * (min(
+                    1.0f,
+                    distanceY / WitDisplay.dp2px(context, 30)
+                ) * dipScale + 0.124f * distanceY) *
                         riseAndFall(time, 0.098f, 3.3f)
             }
 
             // 3. 中心轨迹平移：从按钮中心平滑滑翔至卡片中心（第 0 帧严格居中原按钮）
-            val curCenterX = if (time <= 0f) anchorRect.centerX() else lerp(anchorRect.centerX(), targetRect.centerX(), prog)
-            val curCenterY = if (time <= 0f) anchorRect.centerY() else lerp(anchorRect.centerY(), targetRect.centerY(), prog) + dip
+            val curCenterX = if (time <= 0f) anchorRect.centerX() else lerp(
+                anchorRect.centerX(),
+                targetRect.centerX(),
+                prog
+            )
+            val curCenterY = if (time <= 0f) anchorRect.centerY() else lerp(
+                anchorRect.centerY(),
+                targetRect.centerY(),
+                prog
+            ) + dip
 
             currentPlatterRect.set(
                 curCenterX - curW / 2f,
@@ -497,13 +544,14 @@ public class WitMorphPopup private constructor(private val context: Context) {
             // 5. 动效中按钮这块保持主题色：从 primaryColor 平滑演进至 cardColor
             val colorProg = ((prog - 0.02f) / 0.60f).coerceIn(0f, 1f)
             fillPaint.color = ColorUtils.blendARGB(primaryColor, cardColor, colorProg)
-            fillPaint.alpha = 255
 
-            // 6. 原按钮图标在展开前 25% 阶段渐隐融入
-            val iconAlpha = if (time <= 0f) 1.0f else (1.0f - (prog / 0.25f)).coerceIn(0f, 1f)
-            snapAlpha = (iconAlpha * 255).toInt()
-
-            // 7. 内容随卡片展开自然淡入
+            // 玻璃只存在于过渡阶段：中段降低卡片不透明度，让背景模糊透出；稳态恢复纯色。
+            val transitionGlass = (prog * 3f).coerceIn(0f, 1f) * (1f - prog).coerceIn(0f, 1f)
+            fillPaint.alpha = lerp(255f, 150f, transitionGlass).toInt()
+            backdropView.alpha = 0.90f * transitionGlass
+            glassProgress = transitionGlass
+            val iconAlpha = if (time <= 0f) 1f else (1f - (prog / 0.25f)).coerceIn(0f, 1f)
+            snapAlpha = if (time >= 0.32f) 0 else (iconAlpha * 255f).toInt()
             val contentAlpha = if (time <= 0f) 0f else ((prog - 0.08f) / 0.35f).coerceIn(0f, 1f)
             contentView.alpha = contentAlpha
 
@@ -536,7 +584,11 @@ public class WitMorphPopup private constructor(private val context: Context) {
             val curH = max(startSize, lerp(targetRect.height(), startSize, returnProgress))
 
             val rawCenterX = lerp(targetRect.centerX(), anchorRect.centerX(), returnProgress)
-            val rawCenterY = lerp(targetRect.centerY(), anchorRect.centerY(), returnProgress) + away * dip * ringing
+            val rawCenterY = lerp(
+                targetRect.centerY(),
+                anchorRect.centerY(),
+                returnProgress
+            ) + away * dip * ringing
 
             val curCenterX = lerp(rawCenterX, anchorRect.centerX(), snapToAnchor)
             val curCenterY = lerp(rawCenterY, anchorRect.centerY(), snapToAnchor)
@@ -562,62 +614,58 @@ public class WitMorphPopup private constructor(private val context: Context) {
             contentView.alpha = (1.0f - (time / 0.10f)).coerceIn(0f, 1f)
 
             // 颜色演进：随着收拢归巢从卡片派生色平滑变回主题色
-            val colorProg = lerp(((1.0f - returnProgress) / 0.60f).coerceIn(0f, 1f), 0f, snapToAnchor)
+            val colorProg =
+                lerp(((1.0f - returnProgress) / 0.60f).coerceIn(0f, 1f), 0f, snapToAnchor)
             fillPaint.color = ColorUtils.blendARGB(primaryColor, cardColor, colorProg)
 
-            // 原按钮图标在收拢归巢后半段渐显重组，归巢后绝对显现（snapAlpha=255）
-            val iconReveal = ((time - 0.15f) / 0.28f).coerceIn(0f, 1f)
-            snapAlpha = (lerp(iconReveal, 1.0f, snapToAnchor) * 255).toInt()
+            // 收起阶段交给真实按钮接管，避免快照图标与真实按钮在最后一帧跳变。
+            snapAlpha = 0
 
-            // 归巢收尾阶段平滑融入 Toolbar 主题色消失
             val platterAlpha = if (time > 0.40f) {
                 (1.0f - ((time - 0.40f) / 0.10f)).coerceIn(0f, 1f)
             } else {
                 1.0f
             }
-            fillPaint.alpha = (platterAlpha * 255).toInt()
-
+            val transitionGlass = (time / 0.26f).coerceIn(0f, 1f) * platterAlpha
+            fillPaint.alpha = (platterAlpha * lerp(255f, 150f, transitionGlass)).toInt()
+            backdropView.alpha = 0.90f * transitionGlass
+            glassProgress = transitionGlass
             invalidate()
         }
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            if (liquidPath.isEmpty) return
-
-            // 1. 绘制纯净的主题派生色卡片（完全无阴影）
-            canvas.drawPath(liquidPath, fillPaint)
-
-            // 2. 绘制原按钮图标（在起始阶段与归巢阶段平滑过渡）
-            if (snapAlpha > 0 && anchorBitmap != null) {
-                snapPaint.alpha = snapAlpha
-                canvas.save()
-                canvas.clipPath(liquidPath)
-                val snapW = anchorRect.width()
-                val snapH = anchorRect.height()
-                val snapLeft = currentPlatterRect.centerX() - snapW / 2f
-                val snapTop = currentPlatterRect.centerY() - snapH / 2f
-                val snapRect = RectF(snapLeft, snapTop, snapLeft + snapW, snapTop + snapH)
-                canvas.drawBitmap(anchorBitmap, null, snapRect, snapPaint)
-                canvas.restore()
-            }
         }
 
         override fun dispatchDraw(canvas: Canvas) {
-            // 内容以卡片当前中心为原点投射缩放与裁剪
-            if (!liquidPath.isEmpty && contentView.alpha > 0f) {
-                canvas.save()
-                canvas.clipPath(liquidPath)
+            if (liquidPath.isEmpty) return
 
-                val contentScale = (currentPlatterRect.width() / targetRect.width()).coerceIn(0.01f, 1.05f)
-                canvas.translate(currentPlatterRect.centerX(), currentPlatterRect.centerY())
-                canvas.scale(contentScale, contentScale)
-                canvas.translate(-targetRect.centerX(), -targetRect.centerY())
+            canvas.save()
+            canvas.clipPath(liquidPath)
+            backdropView.draw(canvas)
+            canvas.drawPath(liquidPath, fillPaint)
 
-                super.dispatchDraw(canvas)
-                canvas.restore()
-            } else if (contentView.alpha >= 1.0f) {
-                super.dispatchDraw(canvas)
+            if (snapAlpha > 0 && anchorBitmap != null) {
+                snapPaint.alpha = snapAlpha
+                val snapW = anchorRect.width()
+                val snapH = anchorRect.height()
+                val snapRect = RectF(
+                    currentPlatterRect.centerX() - snapW / 2f,
+                    currentPlatterRect.centerY() - snapH / 2f,
+                    currentPlatterRect.centerX() + snapW / 2f,
+                    currentPlatterRect.centerY() + snapH / 2f
+                )
+                canvas.drawBitmap(anchorBitmap, null, snapRect, snapPaint)
             }
+
+            if (contentView.alpha > 0f) {
+                val contentScale =
+                    (currentPlatterRect.width() / targetRect.width()).coerceIn(0.01f, 1.05f)
+                canvas.translate(currentPlatterRect.left, currentPlatterRect.top)
+                canvas.scale(contentScale, contentScale)
+                contentView.draw(canvas)
+            }
+            canvas.restore()
         }
     }
 
@@ -648,22 +696,6 @@ public class WitMorphPopup private constructor(private val context: Context) {
                 setTextColor(textColor)
                 alpha = if (item.enabled) 1.0f else 0.45f
                 isEnabled = item.enabled
-
-                val icon = when {
-                    item.iconDrawable != null -> item.iconDrawable
-                    item.iconRes != 0 -> ContextCompat.getDrawable(context, item.iconRes)
-                    else -> null
-                }
-                if (icon != null) {
-                    val iconSize = WitDisplay.dp2px(context, 20)
-                    icon.setBounds(0, 0, iconSize, iconSize)
-                    icon.setTint(textColor)
-                    setCompoundDrawables(icon, null, null, null)
-                    compoundDrawablePadding = WitDisplay.dp2px(context, 12)
-                } else {
-                    setCompoundDrawables(null, null, null, null)
-                    compoundDrawablePadding = 0
-                }
             }
 
             return view
@@ -671,10 +703,16 @@ public class WitMorphPopup private constructor(private val context: Context) {
     }
 }
 
+private fun blurBackdrop(source: Bitmap): Bitmap {
+    val targetWidth = (source.width / 8).coerceAtLeast(1)
+    val targetHeight = (source.height / 8).coerceAtLeast(1)
+    val reduced = Bitmap.createScaledBitmap(source, targetWidth, targetHeight, true)
+    return Bitmap.createScaledBitmap(reduced, source.width, source.height, true)
+}
+
 private fun lerp(start: Float, stop: Float, amount: Float): Float {
     return start + (stop - start) * amount
 }
-
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()

@@ -40,7 +40,8 @@ public object WitToolbarOverflow {
                 // 清空该 TouchListener，恢复标准 Android 点击分发。
                 overflowButton.setOnTouchListener(null)
                 overflowButton.setOnClickListener {
-                    val items = customItems ?: extractOverflowItems(toolbar, actionMenuView, overflowButton)
+                    val items =
+                        customItems ?: extractOverflowItems(toolbar, actionMenuView, overflowButton)
                     if (items.isEmpty()) return@setOnClickListener
 
                     WitMorphPopup.show(toolbar.context, overflowButton, items) { selected ->
@@ -82,7 +83,8 @@ public object WitToolbarOverflow {
             return true
         }
         val desc = view.contentDescription?.toString()
-        val defaultDesc = toolbar.context.getString(androidx.appcompat.R.string.abc_action_menu_overflow_description)
+        val defaultDesc =
+            toolbar.context.getString(androidx.appcompat.R.string.abc_action_menu_overflow_description)
         return desc != null && desc == defaultDesc
     }
 
@@ -98,10 +100,6 @@ public object WitToolbarOverflow {
                 if (child.id != View.NO_ID) {
                     displayedActionIds.add(child.id)
                 }
-                val itemData = (child as? androidx.appcompat.view.menu.MenuView.ItemView)?.itemData
-                if (itemData != null) {
-                    displayedActionIds.add(itemData.itemId)
-                }
             }
         }
 
@@ -111,14 +109,12 @@ public object WitToolbarOverflow {
             val item = menu.getItem(i)
             if (!item.isVisible) continue
             if (item.itemId in displayedActionIds) continue
-            if (item is androidx.appcompat.view.menu.MenuItemImpl && item.isActionButton) continue
             if (item.actionView != null) continue
 
             result.add(
                 WitMenuItem(
                     id = item.itemId,
                     title = item.title ?: "",
-                    iconDrawable = item.icon,
                     enabled = item.isEnabled,
                 )
             )

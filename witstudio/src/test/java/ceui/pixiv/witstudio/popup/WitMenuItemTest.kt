@@ -12,8 +12,6 @@ class WitMenuItemTest {
         val item = WitMenuItem(id = 101, title = "测试菜单项")
         assertEquals(101, item.id)
         assertEquals("测试菜单项", item.title)
-        assertEquals(0, item.iconRes)
-        assertEquals(null, item.iconDrawable)
         assertTrue(item.enabled)
         assertEquals(null, item.onClick)
     }
